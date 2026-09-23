@@ -1,7 +1,7 @@
 // ゲームのシミュレーション本体。DOM に依存しない。
 // 状態 S を引数で受け取り、画面側への通知は hooks 経由で行う。
-import { COLORS, CK, TOTAL, DRY, PAY_DELAY, WEEKS, MARKET_STEP, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE, ADS } from './constants.js';
-import { rint, pick, yen, cnt, poisson, monthOf, dateStr } from './util.js';
+import { COLORS, CK, TOTAL, YEAR, YEARS, GROWTH, RENT_BY_YEAR, DRY, PAY_DELAY, WEEKS, MARKET_STEP, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE, ADS, MARKET_SWING, MARKET_EVENT_SCALE, TAX_RATE, ACCIDENTS, ACCIDENT_EQUIP } from './constants.js';
+import { rint, pick, yen, cnt, poisson, monthOf, dateStr, fullDateStr, weekOfYear, yearOf } from './util.js';
 import { ROSTER, wageOf } from './roster.js';
 import { EVENT_TYPES, genEvents, demandOf, priceOf } from './events.js';
 
@@ -21,7 +21,15 @@ export const craftRate = c => c.speed * CRAFT.ratePerSpeed;
 const staffMorale = S => (S.lowMorale ? 0.5 : 1);
 export const staffRate = S => S.staff.reduce((a, c) => a + craftRate(c), 0);
 export const prodRate = S => SELF_RATE + staffRate(S) * staffMorale(S);
-export const monthly = S => RENT + S.staff.reduce((a, c) => a + c.wage, 0);
+// 家賃は年ごとに上がる
+export const rentOf = d => RENT_BY_YEAR[Math.min(YEARS, yearOf(d)) - 1];
+// 月の支払い（家賃＋給料）。d はその月に含まれる週（省略時は今週）
+export const monthly = (S, d = S.day) => rentOf(d) + S.staff.reduce((a, c) => a + c.wage, 0);
+// これまでの設備投資額（乾燥棚と倉庫）
+export const equipValue = S => RACK_UP.slice(0, S.rackLv).reduce((a, b) => a + b, 0) + WH_UP.slice(0, S.whLv).reduce((a, b) => a + b, 0);
+// 次の月末に払う額（家賃・給料＋税金・修理代）
+export const billsTotal = S => (S.bills ?? []).reduce((a, b) => a + b.amt, 0);
+export const dueTotal = S => monthly(S) + billsTotal(S);
 // 工房の腕前：本人と職人のうまさを、作る量で重み付けした平均
 export const teamSkill = S => {
   const m = staffMorale(S);
@@ -40,7 +48,9 @@ export const popMult = S => POP.minMult + (POP.maxMult - POP.minMult) * popRatio
 export const popStars = S => Math.min(5, 1 + Math.floor(popRatio(S) * 5));
 
 /* ---------- 開始・セーブ互換 ---------- */
-export const inRush = d => d >= RUSH.start && d < RUSH.end;
+// 季節の判定は年内の週で行う（毎年くり返す）
+export const inRush = d => weekOfYear(d) >= RUSH.start && weekOfYear(d) < RUSH.end;
+const inPreRush = d => weekOfYear(d) >= RUSH.preStart && weekOfYear(d) < RUSH.start;
 // その週に起きている（act）／予告中（ann）のイベント
 export const activeEvents = (S, d, p = 'act') => S.events.filter(e => phase(e, d) === p);
 // 色 k が作れない（ホルムズ海峡封鎖中のきん など）
@@ -50,6 +60,8 @@ export function newGame(rng = Math.random) {
     t: 0, day: 0, cash: START_CASH, mat: START_MAT, fin: { red: START_RED, gold: 0, pink: 0, sky: 0, green: 0 }, rack: [], color: 'red', prog: 0,
     rackLv: 0, whLv: 0, staff: [], recv: [], m: 1, sup: 0, noise: 1, events: genEvents(rng), strikes: 0, lowMorale: false,
     stats: { sold: 0, missed: 0, rev: 0 }, today: { sold: 0, missed: 0, rev: 0 }, news: [], banner: '', over: false,
+    year: { sold: 0, missed: 0, rev: 0, cost: 0 }, history: [], // year＝今年の成績（cost＝経費）、history＝終わった年の成績
+    bills: [], // 次の月末に家賃・給料と一緒に払う出費 {name, amt}（税金・修理代）
     pop: 0, popStars: 1, pool: [], ads: [],
   };
   refreshPool(S, rng);
@@ -93,6 +105,13 @@ export function normalize(S) {
   if (!Array.isArray(S.events) || S.events.some(e => !EVENT_TYPES[e.type])) { S.events = genEvents(); updateMarket(S, true); }
   if (!Array.isArray(S.pool)) refreshPool(S);
   if (!Array.isArray(S.ads)) S.ads = [];
+  // 1年版のセーブ：今年の成績と、2年目以降のイベントを補う
+  if (!S.stats) S.stats = { sold: 0, missed: 0, rev: 0 };
+  if (!Array.isArray(S.bills)) S.bills = [];
+  if (S.year && typeof S.year.cost !== 'number') S.year.cost = 0;
+  if (!S.year) { S.year = { sold: S.stats.sold, missed: S.stats.missed, rev: S.stats.rev }; S.history = []; }
+  const lastYear = Math.floor(Math.max(0, ...S.events.map(e => e.start)) / YEAR) + 1;
+  if (lastYear < YEARS) S.events.push(...genEvents(Math.random, YEARS, lastYear));
   return S;
 }
 export const isValidSave = sv => !!(sv && sv.fin && typeof sv.fin.red === 'number' && Array.isArray(sv.rack) && sv.rack.every(r => typeof r.n === 'number'));
@@ -100,28 +119,34 @@ export const isValidSave = sv => !!(sv && sv.fin && typeof sv.fin.red === 'numbe
 /* ---------- 市場 ---------- */
 export function marketTarget(S, d) {
   let t = 1, cap = 40;
-  if (d >= RUSH.preStart && d < RUSH.start) { t = Math.max(t, 1.4); cap = Math.min(cap, 20); } // 10月後半
+  if (inPreRush(d)) { t = Math.max(t, 1.4); cap = Math.min(cap, 20); } // 10月後半
   if (inRush(d)) { t = Math.max(t, 1.9); cap = Math.min(cap, 12); } // 年末商戦：素材不足
   for (const e of S.events) {
     const p = phase(e, d), T = EVENT_TYPES[e.type];
     if (p === 'ann') { t = Math.max(t, 1.3); cap = Math.min(cap, 24); }
     if (p === 'act') { t = Math.max(t, T.market.t); cap = Math.min(cap, T.market.cap); }
   }
-  return { t, cap: cap * QTY }; // 入荷上限（個/週）
+  return { t: Math.round((1 + (t - 1) * MARKET_EVENT_SCALE) * 100) / 100, cap: cap * QTY }; // 入荷上限（個/週）
 }
-export function updateMarket(S, first) {
+// 相場を1週ぶん動かす。mBase＝季節やイベントによる流れ、mSwing＝毎週の揺れ、m＝実際の相場
+export function updateMarket(S, first, rng = Math.random) {
   const { t, cap } = marketTarget(S, S.day);
-  if (first) S.m = t;
-  else if (t > S.m) S.m = Math.min(t, S.m + MARKET_STEP.up);
-  else S.m = Math.max(t, S.m - MARKET_STEP.down);
-  S.m = Math.round(S.m * 100) / 100;
+  if (first || typeof S.mBase !== 'number') { S.mBase = t; S.mSwing = 0; }
+  else if (t > S.mBase) S.mBase = Math.min(t, S.mBase + MARKET_STEP.up);
+  else S.mBase = Math.max(t, S.mBase - MARKET_STEP.down);
+  if (!first) {
+    const g = Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng()); // 標準正規乱数
+    S.mSwing = MARKET_SWING.keep * S.mSwing + MARKET_SWING.sd * g;
+  }
+  S.m = Math.round(Math.min(MARKET_SWING.max, Math.max(MARKET_SWING.min, S.mBase * (1 + S.mSwing))) * 100) / 100;
   S.sup = cap;
 }
 
 /* ---------- 需要 ---------- */
 export function lambda(S, d) {
   const mo = monthOf(d), share = inRush(d) ? SHARE.rush : SHARE.normal;
-  const base = 2.4 * QTY * MM[mo] * S.noise * popMult(S) * (1 + adBoost(S, d)), rate = {}, mult = {}; // rate は需要（個/週）。イベントの上乗せは人気に関係しない
+  const growth = GROWTH[Math.min(YEARS, yearOf(d)) - 1]; // 年々評判が広まって客足が増える
+  const base = 2.4 * QTY * MM[mo] * growth * S.noise * popMult(S) * (1 + adBoost(S, d)), rate = {}, mult = {}; // rate は需要（個/週）。イベントの上乗せは人気に関係しない
   const org = {}; // 色ごとの客の国籍の重み
   for (const k of CK) {
     rate[k] = base * share[k]; mult[k] = COLORS[k].price * (inRush(d) ? RUSH.price : 1);
@@ -158,7 +183,7 @@ function arrive(S, k, n, mult, type) {
   if (sold === n) S.pop += POP.gain[type] * skillMult(S);
   else if (sold === 0) S.pop = Math.max(0, S.pop - POP.miss);
   S.fin[k] -= sold;
-  S.today.sold += sold; S.today.rev += amt; S.stats.sold += sold; S.stats.rev += amt;
+  S.today.sold += sold; S.today.rev += amt; S.stats.sold += sold; S.stats.rev += amt; S.year.sold += sold; S.year.rev += amt; S.year.missed += missed;
   S.today.missed += missed; S.stats.missed += missed;
   return { sold, missed, amt };
 }
@@ -172,7 +197,7 @@ export const canAd = (S, id) => !activeAd(S, id) && S.cash >= ADS[id].cost && !S
 export function runAd(S, id) {
   if (!canAd(S, id)) return null;
   const A = ADS[id];
-  S.cash -= A.cost; S.pop += A.pop;
+  S.cash -= A.cost; S.pop += A.pop; S.year.cost += A.cost;
   S.ads = S.ads.filter(a => S.t < a.until).concat({ id, until: S.t + A.weeks });
   return `${A.name}を打った！人気が上がり、${A.weeks}週間お客さんが増える`;
 }
@@ -182,24 +207,27 @@ export function dayNews(S, d) {
   const out = [];
   for (const e of S.events) {
     const T = EVENT_TYPES[e.type];
+    if (T.silent) continue; // 突発の出費は newDay で知らせる
     if (e.ann && d === e.start - e.ann) out.push(T.ann(e));
     if (d === e.start) out.push(T.start(e));
     if (d === e.start + e.len) out.push(T.end(e));
   }
-  if (d === 24) out.push('10月。年末商戦に向けて在庫と素材を仕込む時期。11月からは素材も職人も足りなくなる');
-  if (d === RUSH.preStart) out.push('素材の問屋が年末に向けて値上げを始めた');
-  if (d === RUSH.start) out.push('年末商戦開幕！あかだるまが飛ぶように売れる。素材の入荷は細り、職人の求人も止まった');
-  if (d === 32) out.push('12月。書き入れ時の本番！');
-  if (d === RUSH.end) out.push('年が明けた…客足がぱったり途絶えた。売れ残りを抱えすぎないように');
-  if (d === 44) out.push('最終月。3月第4週の営業終了で決算です');
+  const w = weekOfYear(d), y = yearOf(d);
+  if (w === 0 && y > 1) out.push(`${y}年目が始まった！評判が広まって客足が増えた。家賃は月${yen(RENT_BY_YEAR[Math.min(YEARS, y) - 1])}に値上がり`);
+  if (w === 24) out.push('10月。年末商戦に向けて在庫と素材を仕込む時期。11月からは素材も職人も足りなくなる');
+  if (w === RUSH.preStart) out.push('素材の問屋が年末に向けて値上げを始めた');
+  if (w === RUSH.start) out.push('年末商戦開幕！あかだるまが飛ぶように売れる。素材の入荷は細り、職人の求人も止まった');
+  if (w === 32) out.push('12月。書き入れ時の本番！');
+  if (w === RUSH.end) out.push('年が明けた…客足がぱったり途絶えた。売れ残りを抱えすぎないように');
+  if (w === 44) out.push(y >= YEARS ? '最終月。3月第4週の営業終了で最終決算です' : `3月。今月末で${y}年目の決算です`);
   return out;
 }
 export function mood(S) {
-  const d = curDay(S), act = activeEvents(S, d);
+  const d = curDay(S), act = activeEvents(S, d).filter(e => !EVENT_TYPES[e.type].silent);
   if (act.length) return EVENT_TYPES[act[act.length - 1].type].mood;
   if (inRush(d)) return '年末商戦！';
-  if (d >= RUSH.end && d < RUSH.end + WEEKS) return '年明けで閑散';
-  if (activeEvents(S, d, 'ann').length || (d >= RUSH.preStart && d < RUSH.start)) return '町がざわついています';
+  if (weekOfYear(d) >= RUSH.end && weekOfYear(d) < RUSH.end + WEEKS) return '年明けで閑散';
+  if (activeEvents(S, d, 'ann').length || inPreRush(d)) return '町がざわついています';
   return 'いつもの町';
 }
 
@@ -209,6 +237,7 @@ export function mood(S) {
 //   news()           その週のニュースがバナーに出たとき
 //   save()           週替わりの保存タイミング
 //   short(info)      資金ショート {cost, paid}
+//   yearEnd(info)    年の終わり（最終年を除く） {year, rev, sold, missed, pop}
 //   end(bankrupt)    ゲーム終了（S.over=true 済み）
 export function step(S, dd, hooks = {}, rng = Math.random) {
   const prevDay = S.day;
@@ -248,13 +277,24 @@ export function step(S, dd, hooks = {}, rng = Math.random) {
 export function newDay(S, nd, hooks = {}, rng = Math.random) {
   const td = S.today;
   S.day = nd;
-  const lines = [`${dateStr(nd - 1)}：販売${cnt(td.sold)}個 ${yen(td.rev)}${td.missed ? `／売り逃し${cnt(td.missed)}個` : ''}`];
+  const lines = [`${fullDateStr(nd - 1)}：販売${cnt(td.sold)}個 ${yen(td.rev)}${td.missed ? `／売り逃し${cnt(td.missed)}個` : ''}`];
   S.today = { sold: 0, missed: 0, rev: 0 };
   let short = null, hot = [];
   if (nd % WEEKS === 0) {
-    const cost = monthly(S);
+    const base = monthly(S, nd - 1), cost = base + billsTotal(S); // 終わった月（先週まで）の家賃で払う
+    S.year.cost += base; // 税金・修理代は経費に入れない（税金の計算を単純にするため）
+    S.bills = [];
     if (S.cash >= cost) { S.cash -= cost; S.lowMorale = false; hot.push(`月末の支払い ${yen(cost)} を済ませた`); }
     else { const paid = S.cash; S.cash = 0; S.strikes++; S.lowMorale = S.staff.length > 0; hot.push(`資金ショート（${S.strikes}/3）`); short = { cost, paid }; }
+  }
+  // 年の終わり：その年の成績を記録する（最終年は最終決算で）
+  let yearEnd = null;
+  if (nd % YEAR === 0 && S.strikes < 3) {
+    const tax = Math.round(Math.max(0, S.year.rev - S.year.cost) * TAX_RATE / 10000) * 10000;
+    yearEnd = { year: nd / YEAR, ...S.year, pop: popStars(S), tax };
+    S.history.push(yearEnd);
+    S.year = { sold: 0, missed: 0, rev: 0, cost: 0 };
+    if (tax > 0 && nd < TOTAL) { S.bills.push({ name: '税金', amt: tax }); hot.push(`${yearEnd.year}年目の税金 ${yen(tax)} を来月末に納める`); }
   }
   if (S.strikes >= 3 || nd >= TOTAL) {
     S.news = [...hot, ...lines].map(t => ({ t })).concat(S.news).slice(0, 30);
@@ -264,8 +304,14 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
   }
   const prev = S.m;
   S.noise = 0.7 + rng() * 0.6;
-  updateMarket(S, false);
+  updateMarket(S, false, rng);
   hot = hot.concat(dayNews(S, nd));
+  // 突発の出費（予告なし）：修理代を次の月末の支払いに足す
+  for (const e of S.events) if (e.type === 'accident' && e.start === nd) {
+    const A = ACCIDENTS[e.kind], amt = Math.round((rentOf(nd) * (A.min + (A.max - A.min) * e.months) + equipValue(S) * ACCIDENT_EQUIP) / 10000) * 10000;
+    S.bills.push({ name: '修理代', amt });
+    hot.push(`${A.name}！修理代 ${yen(amt)} を月末に払う`);
+  }
   for (const a of S.ads) if (a.until <= nd && a.until > nd - 1) hot.push(`${ADS[a.id].name}の効果が切れた`);
   S.ads = S.ads.filter(a => a.until > nd);
   if (nd % CRAFT.poolEvery === 0) refreshPool(S, rng); // 求職者は毎週入れ替わる（ニュースにはしない）
@@ -280,6 +326,7 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
   if (hot.length) { S.banner = hot[hot.length - 1]; hooks.news?.(); }
   hooks.save?.();
   if (short) hooks.short?.(short);
+  else if (yearEnd) hooks.yearEnd?.(yearEnd);
 }
 
 /* ---------- プレイヤー操作 ---------- */
@@ -289,7 +336,7 @@ export function buy(S, limit = Infinity) {
   const n = Math.min(buyQty(S), Math.floor(limit));
   if (n < 1) return null;
   const cost = n * matPrice(S);
-  S.cash -= cost; S.mat += n; S.sup -= n;
+  S.cash -= cost; S.mat += n; S.sup -= n; S.year.cost += cost;
   return { n, cost };
 }
 export const buyBlockReason = S => S.sup < 1 ? (marketTarget(S, S.day).cap === 0 ? '物流ストップ中' : '今週は入荷終了') : whFree(S) < 1 ? '倉庫が満杯' : 'お金が足りない';
@@ -314,15 +361,15 @@ export const poolCrafts = S => S.pool.map(id => ROSTER[id]);
 export const canHire = (S, c) => S.staff.length < CRAFT.max && S.cash >= c.fee && S.pool.includes(c.id);
 // 投資（乾燥棚・倉庫）を実行してトースト用の文言を返す（可否チェックは呼び出し側＝ボタンの disabled）
 export function invest(S, u) {
-  if (u === 'rack') { S.cash -= RACK_UP[S.rackLv]; S.rackLv++; return '乾燥棚を増やした'; }
-  if (u === 'wh') { S.cash -= WH_UP[S.whLv]; S.whLv++; return '倉庫を広げた'; }
+  if (u === 'rack') { S.cash -= RACK_UP[S.rackLv]; S.year.cost += RACK_UP[S.rackLv]; S.rackLv++; return '乾燥棚を増やした'; }
+  if (u === 'wh') { S.cash -= WH_UP[S.whLv]; S.year.cost += WH_UP[S.whLv]; S.whLv++; return '倉庫を広げた'; }
   return '';
 }
 // 求職者を雇う。雇えなければ null
 export function hire(S, id) {
   const c = ROSTER[id];
   if (!c || !canHire(S, c)) return null;
-  S.cash -= c.fee;
+  S.cash -= c.fee; S.year.cost += c.fee;
   S.staff.push({ ...c, look: { ...c.look } });
   S.pool = S.pool.filter(p => p !== id);
   return `${c.name}が工房に加わった`;
@@ -339,5 +386,6 @@ export function fire(S, id) {
 export function settle(S, bankrupt) {
   const stock = finN(S) * STOCK_VALUE + S.mat * MAT, score = S.cash + recvTotal(S) + stock;
   const rank = bankrupt ? '閉店' : RANKS.find(([min]) => score >= min)[1];
-  return { stock, score, rank, revenue: S.stats.rev, goal: S.stats.rev >= REVENUE_GOAL };
+  const years = S.history.map(h => h.rev), best = Math.max(0, ...years);
+  return { stock, score, rank, revenue: S.stats.rev, years, best, goal: best >= REVENUE_GOAL };
 }

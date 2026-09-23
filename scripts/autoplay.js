@@ -1,9 +1,9 @@
 // 自動プレイでバランスを検証する。
 // 使い方: npm run autoplay [-- 試行回数]
-// 目安: 投資なし＝一人前9割（人気は年末までにLv3〜5）、投資あり＝ほぼ一人前・年商 中央値約1億
+// 目安（3年）: RANKS の基準に対して、投資なし＝一人前が中心、投資あり＝名工が中心・だるま大名は上位のみ
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt } from '../src/util.js';
-import { CK, TOTAL, WEEKS, RENT, MAT, REVENUE_GOAL, QTY, RUSH, ADS, SELF_RATE } from '../src/constants.js';
+import { CK, TOTAL, YEAR, WEEKS, RENT, MAT, REVENUE_GOAL, QTY, RUSH, ADS, SELF_RATE } from '../src/constants.js';
 
 const STEP = 0.01;
 
@@ -15,10 +15,10 @@ function passive(S) {
 // 投資あり：在庫が何日分あるかを見て足りない色を作り、特需と年末ラッシュを先読みする。
 // 棚・倉庫・職人には支払いの余裕を残して投資する
 function active(S) {
-  const d = sim.curDay(S);
+  const d = sim.curDay(S), w = d % YEAR, y0 = d - w; // w＝年内の週、y0＝今年の始まり
   // 9〜10月は年末商戦（11月）の需要を見越して備蓄する。それ以外は乾燥の1週＋αを見越す
-  const prep = d >= 16 && d < RUSH.start;
-  const ahead = prep ? RUSH.start + 2 : Math.min(TOTAL - 1, d + 2);
+  const prep = w >= 16 && w < RUSH.start;
+  const ahead = prep ? y0 + RUSH.start + 2 : Math.min(TOTAL - 1, d + 2);
   const { rate } = sim.lambda(S, ahead);
   const onRack = k => S.rack.reduce((a, r) => a + (r.c === k ? r.n : 0), 0);
   const cover = k => (S.fin[k] + onRack(k)) / Math.max(1, rate[k]); // 何週分あるか
@@ -29,7 +29,7 @@ function active(S) {
   S.color = d >= TOTAL - 2 || cover(k2) >= target ? 'stop' : k2;
   // 支払い分を残して投資する。9〜10月の仕込み期は思い切って（支払い1か月分だけ残す）。
   // 棚が詰まっていたら棚、倉庫が7割埋まったら倉庫、職人は「作る量＋うまさ」あたりの給料が割安な人から
-  const reserve = sim.monthly(S) * (prep ? 1 : 2);
+  const reserve = sim.monthly(S) * (prep ? 1 : 2) + sim.billsTotal(S);
   const items = Object.fromEntries(sim.investItems(S).map(it => [it.id, it]));
   const want = {
     rack: sim.rackFree(S) < sim.prodRate(S),
@@ -37,7 +37,7 @@ function active(S) {
   };
   for (const id of ['rack', 'wh']) {
     const it = items[id];
-    if (want[id] && !it.done && S.cash - it.cost >= reserve && d < RUSH.end) sim.invest(S, id);
+    if (want[id] && !it.done && S.cash - it.cost >= reserve && d < TOTAL - YEAR + RUSH.end) sim.invest(S, id);
   }
   const value = c => (sim.craftRate(c) + c.skill * 0.3 * QTY) / c.wage;
   const best = sim.poolCrafts(S).sort((a, b) => value(b) - value(a))[0];
@@ -48,10 +48,12 @@ function active(S) {
     if (stock > demand * 1.5 && S.cash - ADS[id].cost >= sim.monthly(S) * 2 && sim.canAd(S, id)) { sim.runAd(S, id); break; }
   }
   // 素材は1週強を目安に、支払い分を残して買う（月末が近ければ多めに残す）
-  const keep = sim.monthly(S) * (WEEKS - S.day % WEEKS <= 1 ? 1 : 0.5);
+  const keep = sim.monthly(S) * (WEEKS - S.day % WEEKS <= 1 ? 1 : 0.5) + sim.billsTotal(S);
+  // 相場が安い週は多めに（倉庫の許すかぎり）、高い週は最低限だけ
   const afford = Math.max(0, (S.cash - keep) / sim.matPrice(S)); // 支払い分を残して買える数
-  if (S.color !== 'stop' && S.mat < sim.prodRate(S) * (prep ? 2.4 : 1.2) && sim.matPrice(S) <= MAT * 2) sim.buy(S, afford);
-  else if (S.color !== 'stop' && S.mat < sim.prodRate(S) * 0.8) sim.buy(S, afford);
+  const cheap = S.m < 0.95, dear = S.m > 1.3;
+  const matWant = sim.prodRate(S) * (cheap ? (prep ? 4 : 3) : dear ? 0.5 : (prep ? 2.4 : 1.2));
+  if (S.color !== 'stop' && S.mat < matWant) sim.buy(S, afford);
 }
 
 export function play(policy, seed) {
@@ -75,13 +77,15 @@ function summarize(name, runs) {
   const avg = f => Math.round(runs.reduce((a, r) => a + f(r), 0) / runs.length);
   const ranks = {};
   for (const r of runs) ranks[r.rank] = (ranks[r.rank] || 0) + 1;
-  const rev = runs.filter(r => !r.bankrupt).map(r => r.revenue).sort((a, b) => a - b);
-  const q = f => yen(rev[Math.floor(f * (rev.length - 1))] ?? 0);
-  console.log(`${name}  平均総資産 ${yen(avg(r => r.score))}  販売 ${cnt(avg(r => r.sold))}個  売り逃し ${cnt(avg(r => r.missed))}個  称号 ${JSON.stringify(ranks)}`);
-  const st = {}; for (const r of runs) st[r.stars] = (st[r.stars] || 0) + 1;
+  const ok = runs.filter(r => !r.bankrupt);
+  const pct = (arr, f) => { const s = arr.slice().sort((a, b) => a - b); return s.length ? s[Math.min(s.length - 1, Math.floor(f * s.length))] : 0; };
+  const man = n => `${Math.round(n / 1e4).toLocaleString('ja-JP')}万`;
+  console.log(`${name}  平均総資産 ${yen(avg(r => r.score))}  販売 ${cnt(avg(r => r.sold))}個  称号 ${JSON.stringify(ranks)}`);
+  const sc = ok.map(r => r.score);
+  console.log(`  総資産 p10 ${man(pct(sc, .1))}／p50 ${man(pct(sc, .5))}／p90 ${man(pct(sc, .9))}`);
+  const yrs = [0, 1, 2].map(i => man(pct(ok.map(r => r.years[i] ?? 0), .5))).join('・');
   const reached = runs.filter(r => r.popDay != null).map(r => r.popDay).sort((a, b) => a - b);
-  console.log(`  最終の人気★ ${JSON.stringify(st)}／★5到達 ${reached.length}回（中央値 ${reached[reached.length >> 1] ?? '-'}週目）`);
-  console.log(`  年商 中央値 ${q(.5)}／上位10% ${q(.9)}／最高 ${q(1)}／${yen(REVENUE_GOAL)}達成 ${rev.filter(x => x >= REVENUE_GOAL).length}回`);
+  console.log(`  年商の中央値（1・2・3年目） ${yrs}／${yen(REVENUE_GOAL)}達成 ${runs.filter(r => r.goal).length}回／人気Lv5到達 ${reached.length}回（中央値 ${reached[reached.length >> 1] ?? '-'}週目）`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

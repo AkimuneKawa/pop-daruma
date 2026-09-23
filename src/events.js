@@ -1,6 +1,6 @@
 // 季節イベント・バズ・ランダムな事件の定義。
 // 各イベント {type, start, len, ann, color?} は ann 週前に予告され、start から len 週間続く
-import { COLORS, QTY } from './constants.js';
+import { COLORS, QTY, YEAR, YEARS, ACCIDENTS } from './constants.js';
 import { rint, pick } from './util.js';
 
 // type ごとの効果とニュース文。
@@ -52,6 +52,10 @@ export const EVENT_TYPES = {
     start: e => `原材料が高騰！素材の相場が跳ね上がる（${e.len}週間）`,
     end: () => '原材料の高騰が落ち着いた',
   },
+  accident: {
+    market: { t: 1, cap: 40 }, mood: 'いつもの町', silent: true, // 効果（出費）は sim.js の newDay で処理する
+    ann: () => '', start: e => ACCIDENTS[e.kind].name + '…', end: () => '',
+  },
   hormuz: {
     stop: ['gold'], market: { t: 1.6, cap: 20 }, mood: 'シンナー不足',
     ann: e => `中東の情勢が緊迫…${e.ann}週間後、ホルムズ海峡が封鎖されるかもしれない`,
@@ -63,22 +67,31 @@ export const EVENT_TYPES = {
 // バズの対象になりやすい色（同じ色を複数入れて重み付け）
 const BUZZ_COLORS = ['pink', 'sky', 'green', 'gold', 'pink', 'sky', 'green', 'red'];
 
-export function genEvents(rng = Math.random) {
+// 1年分のイベント。off は年の始まりの週（2年目なら48）
+function yearEvents(rng, off) {
   const ev = [
-    { type: 'sakura', start: 1, len: 3, ann: 1 }, // 4月第2週〜
-    { type: 'shunsetsu', start: rint(40, 41, rng), len: 2, ann: 1 }, // 2月
+    { type: 'sakura', start: off + 1, len: 3, ann: 1 }, // 4月第2週〜
+    { type: 'shunsetsu', start: off + rint(40, 41, rng), len: 2, ann: 1 }, // 2月
   ];
   // バズ3回（年末商戦の時期は避ける）
   for (const [a, b] of [[7, 12], [15, 22], [37, 39]]) {
-    ev.push({ type: rng() < 0.5 ? 'tv' : 'sns', start: rint(a, b, rng), len: 2, ann: 1, color: pick(BUZZ_COLORS, rng) });
+    ev.push({ type: rng() < 0.5 ? 'tv' : 'sns', start: off + rint(a, b, rng), len: 2, ann: 1, color: pick(BUZZ_COLORS, rng) });
   }
   // ランダムな事件2回：3つの時期のうち2つに、違う種類を1つずつ
   const kinds = ['typhoon', 'surge', 'hormuz'].sort(() => rng() - 0.5);
   const slots = [[4, 12], [16, 24], [38, 44]].sort(() => rng() - 0.5).slice(0, 2);
   slots.forEach(([a, b], i) => {
     const type = kinds[i];
-    ev.push({ type, start: rint(a, b, rng), len: type === 'typhoon' ? 1 : type === 'surge' ? 3 : 4, ann: 1 });
+    ev.push({ type, start: off + rint(a, b, rng), len: type === 'typhoon' ? 1 : type === 'surge' ? 3 : 4, ann: 1 });
   });
+  // 突発の出費1回（予告なし）
+  ev.push({ type: 'accident', start: off + rint(3, 46, rng), len: 1, ann: 0, kind: rint(0, ACCIDENTS.length - 1, rng), months: rng() });
+  return ev;
+}
+// years 年分（from 年目から）のイベントを作る
+export function genEvents(rng = Math.random, years = YEARS, from = 0) {
+  const ev = [];
+  for (let y = from; y < years; y++) ev.push(...yearEvents(rng, y * YEAR));
   return ev;
 }
 

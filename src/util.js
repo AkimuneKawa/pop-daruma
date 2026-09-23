@@ -1,4 +1,4 @@
-import { MONTHS, WEEKS } from './constants.js';
+import { MONTHS, WEEKS, YEAR } from './constants.js';
 
 // rng は () => [0,1) の関数。テスト・自動プレイではシード付きのものを渡す
 export const rint = (a, b, rng = Math.random) => a + Math.floor(rng() * (b - a + 1));
@@ -24,8 +24,12 @@ export function poisson(lam, rng = Math.random) {
   return Math.max(0, Math.round(lam + Math.sqrt(lam) * g));
 }
 export const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-export const monthOf = d => Math.min(11, Math.floor(d / WEEKS));
+// d は通算の週。weekOfYear＝年内の週（0〜47）、yearOf＝何年目か（1〜）
+export const weekOfYear = d => d % YEAR;
+export const yearOf = d => Math.floor(d / YEAR) + 1;
+export const monthOf = d => Math.min(11, Math.floor(weekOfYear(d) / WEEKS));
 export const dateStr = d => `${MONTHS[monthOf(d)]}第${d % WEEKS + 1}週`;
+export const fullDateStr = d => `${yearOf(d)}年目 ${dateStr(d)}`;
 
 // シード付き乱数（mulberry32）
 export function seeded(seed) {

@@ -1,10 +1,10 @@
 // DOM の更新（パネル表示・モーダル・トースト）
-import { CK, TOTAL, WEEKS, COLORS, POP, SELF_RATE, CRAFT } from './constants.js';
+import { CK, TOTAL, YEAR, WEEKS, COLORS, POP, SELF_RATE, CRAFT, MARKET_LEVELS } from './constants.js';
 
 // 生産スピードのピップ1個あたりの生産量（素早さ★5を最大人数雇ったときにちょうど6個）
 const PIP = (SELF_RATE + CRAFT.max * 5 * CRAFT.ratePerSpeed) / 6;
 import { MINI, spr, darPal, paintStatic } from './sprites.js';
-import { yen, cnt, dateStr } from './util.js';
+import { yen, cnt, dateStr, yearOf } from './util.js';
 import * as sim from './sim.js';
 
 export const $ = s => document.querySelector(s);
@@ -28,13 +28,14 @@ export function renderUI(S, speed) {
   pipCtx ??= $('#prodPips').getContext('2d');
   const d = sim.curDay(S);
   $('#date').textContent = dateStr(d);
-  $('#left').textContent = `のこり${Math.max(0, TOTAL - S.day)}週`;
+  $('#left').textContent = `${yearOf(d)}年目 残${YEAR - (d % YEAR)}週`; // 今年の残り
   const cashTxt = yen(S.cash), cashEl = $('#cash');
   cashEl.textContent = cashTxt;
   // 桁が増えたら文字を小さくして枠に収める（「99,999,999円」で11文字）
   cashEl.style.fontSize = cashTxt.length >= 11 ? '1.25rem' : cashTxt.length >= 10 ? '1.45rem' : '';
   $('#due').textContent = `あと${WEEKS - (S.day % WEEKS)}週`;
-  $('#dueAmt').textContent = yen(sim.monthly(S));
+  $('#dueAmt').textContent = yen(sim.dueTotal(S));
+  $('#dueAmt').classList.toggle('red', sim.billsTotal(S) > 0); // 税金・修理代があるときは赤
   $('#recv').textContent = '+' + yen(sim.recvTotal(S));
   $('#ptag').classList.toggle('show', speed === 0 && !S.over);
   $('#banner').textContent = S.banner || '';
@@ -64,9 +65,10 @@ export function renderUI(S, speed) {
   $('#sWh').textContent = `${cnt(Math.max(0, sim.whFree(S)))} / ${cnt(sim.whCap(S))}`;
   const stuck = S.rack.some(x => x.ready <= S.t);
   $('#sRack').innerHTML = `${cnt(sim.rackFree(S))} / ${cnt(sim.rackCap(S))}` + (stuck ? '<small class="red" style="font-size:.7rem"> 倉庫満杯</small>' : '');
-  const lv = S.m < 1.1 ? 0 : S.m < 1.5 ? 1 : 2, mt = sim.marketTarget(S, S.day).t;
+  // 相場：安値・ふつう・高騰。矢印は季節やイベントによる流れ（毎週の揺れは読めない）
+  const lv = S.m < MARKET_LEVELS[0] ? 0 : S.m < MARKET_LEVELS[1] ? 1 : 2, mt = sim.marketTarget(S, S.day).t, base = S.mBase ?? S.m;
   for (let i = 0; i < 3; i++) $('#mk' + i).classList.toggle('on', i === lv);
-  $('#sM').textContent = `×${S.m.toFixed(2)}${mt > S.m + 0.01 ? '↗' : mt < S.m - 0.01 ? '↘' : ''}`;
+  $('#sM').textContent = `×${S.m.toFixed(2)}${mt > base + 0.01 ? '↗' : mt < base - 0.01 ? '↘' : ''}`;
   for (const k of CK) $('#st-' + k).textContent = cnt(S.fin[k]);
   $('#sStockTot').textContent = `素材${cnt(S.mat)}`;
   document.querySelectorAll('.cbtn').forEach(b => { b.classList.toggle('on', b.dataset.c === S.color); b.classList.toggle('off', b.dataset.c !== 'stop' && sim.colorStopped(S, b.dataset.c)); });

@@ -30,16 +30,25 @@ const hooks = {
     modal(`<h2>資金ショート</h2><p>月末の支払い ${yen(short.cost)} のうち、${yen(short.paid)} しか払えませんでした。</p>${S.staff.length ? '<p>給料が遅れたため、来月は職人の作業スピードが半分になります。</p>' : ''}<p class="warn">資金ショート ${S.strikes}/3回。3回で閉店です。</p><button class="mbtn big" id="ok">再開する</button>`, { noClose: true });
     $('#ok').onclick = () => { closeModal(); setSpeed(1); };
   },
+  // 年次決算：その年の成績を見せてから次の年へ
+  yearEnd(y) {
+    setSpeed(0); sound.end(false);
+    const goal = y.rev >= REVENUE_GOAL;
+    modal(`<h2>${y.year}年目の決算</h2><p class="sub">${y.year}年目おつかれさまでした。${y.year + 1}年目は評判が広まってお客さんが増えますが、家賃も上がります。</p>
+    <table class="res"><tr><td>年商</td><td>${yen(y.rev)}</td></tr><tr><td>販売数</td><td>${cnt(y.sold)}個</td></tr><tr><td>売り逃し</td><td>${cnt(y.missed)}個</td></tr><tr><td>人気</td><td>Lv${y.pop} ${POP.names[y.pop - 1]}</td></tr><tr><td>所持金</td><td>${yen(S.cash)}</td></tr><tr><td>税金（来月末に納める）</td><td class="red">${yen(y.tax)}</td></tr></table>
+    ${goal ? `<p class="rank red">★ 年商${yen(REVENUE_GOAL)} 達成！ ★</p>` : ''}<button class="mbtn red big" id="ok">${y.year + 1}年目へ</button>`, { noClose: true });
+    $('#ok').onclick = () => { closeModal(); setSpeed(1); };
+  },
   end(bankrupt) { setSpeed(0); save(); renderUI(); sound.end(bankrupt); showEnd(bankrupt); },
 };
 
 function startNew() { S = sim.newGame(); save(); clearVisitors(); }
 
 function showEnd(bankrupt) {
-  const { stock, score, rank, revenue, goal } = sim.settle(S, bankrupt);
-  modal(`<h2>${bankrupt ? '閉店…' : '決算！'}</h2><p class="sub">${bankrupt ? '資金ショートが3回続き、工房を閉じることになりました。' : '1年間おつかれさまでした。'}</p>
-  <table class="res"><tr><td>年商（1年の売上）</td><td>${yen(revenue)}</td></tr><tr><td>所持金</td><td>${yen(S.cash)}</td></tr><tr><td>予定収入</td><td>${yen(sim.recvTotal(S))}</td></tr><tr><td>在庫（完成品は1個${yen(STOCK_VALUE)}で評価）</td><td>${yen(stock)}</td></tr><tr><td>総資産</td><td>${yen(score)}</td></tr><tr><td>人気</td><td>Lv${sim.popStars(S)} ${POP.names[sim.popStars(S) - 1]}</td></tr><tr><td>販売数</td><td>${cnt(S.stats.sold)}個</td></tr><tr><td>売り逃し</td><td>${cnt(S.stats.missed)}個</td></tr></table>
-  <p class="rank">称号：${rank}</p>${bankrupt ? '' : goal ? `<p class="rank red">★ 年商${yen(REVENUE_GOAL)} 達成！ ★</p>` : `<p class="sub" style="text-align:center">目標の年商${yen(REVENUE_GOAL)}まで あと${yen(REVENUE_GOAL - revenue)}</p>`}<button class="mbtn red big" id="again">もう一度あそぶ</button>`, { noClose: true });
+  const { stock, score, rank, revenue, years, best, goal } = sim.settle(S, bankrupt);
+  modal(`<h2>${bankrupt ? '閉店…' : '決算！'}</h2><p class="sub">${bankrupt ? '資金ショートが3回続き、工房を閉じることになりました。' : '3年間おつかれさまでした。'}</p>
+  <table class="res">${years.map((r, i) => `<tr><td>${i + 1}年目の年商</td><td>${yen(r)}</td></tr>`).join('')}<tr><td>3年間の売上</td><td>${yen(revenue)}</td></tr><tr><td>所持金</td><td>${yen(S.cash)}</td></tr><tr><td>予定収入</td><td>${yen(sim.recvTotal(S))}</td></tr><tr><td>在庫（完成品は1個${yen(STOCK_VALUE)}で評価）</td><td>${yen(stock)}</td></tr><tr><td>総資産</td><td>${yen(score)}</td></tr><tr><td>人気</td><td>Lv${sim.popStars(S)} ${POP.names[sim.popStars(S) - 1]}</td></tr><tr><td>販売数</td><td>${cnt(S.stats.sold)}個</td></tr><tr><td>売り逃し</td><td>${cnt(S.stats.missed)}個</td></tr></table>
+  <p class="rank">称号：${rank}</p>${bankrupt ? '' : goal ? `<p class="rank red">★ 年商${yen(REVENUE_GOAL)} 達成！ ★</p>` : `<p class="sub" style="text-align:center">目標の年商${yen(REVENUE_GOAL)}まで あと${yen(REVENUE_GOAL - best)}（いちばん良かった年）</p>`}<button class="mbtn red big" id="again">もう一度あそぶ</button>`, { noClose: true });
   $('#again').onclick = () => { startNew(); closeModal(); renderUI(); setSpeed(1); };
 }
 
@@ -113,9 +122,10 @@ function openHelp(after) {
   <li><b>人気</b>：欲しいだるまを全部買えたお客さんが増えるほど人気ゲージが伸び（Lv1〜5）、客足が増えます。売り切れで何も買えないと少し下がります。</li>
   <li><b>宣伝</b>：チラシ・SNS広告・テレビCMで、お金を払って人気を上げ、しばらくお客さんを増やせます。在庫を用意してから打ちましょう。</li>
   <li><b>職人</b>：投資メニューから雇えます（最大${CRAFT.max}人）。求職者は毎週入れ替わります。素早さが高いほどたくさん作り、うまさが高いほど人気が上がりやすくなります。どちらも高い人ほど給料も高めです。</li>
-  <li><b>素材を買う</b>：1タップで${cnt(BUY_N)}個。特需の予告が出ると相場が上がり、特需中は入荷が絞られます。</li>
+  <li><b>素材を買う</b>：1タップで${cnt(BUY_N)}個。素材の値段はだるまの売値の半分ほどで、相場は毎週上下します。「安値」の週に倉庫いっぱい買いだめし、「高騰」の週は控えるのがコツ。特需の予告や年末商戦の前は相場が上がり、入荷も絞られます。</li>
   <li><b>月末</b>に家賃と給料を払います。払えないと資金ショート、3回で閉店。</li>
-  <li><b>季節</b>：4月は桜の観光客でピンク・あお・みどり、2月は春節の観光客であか・きんが売れます。11〜12月の年末商戦が最大の山場ですが、素材の入荷が細り職人も雇えなくなるので、10月までに在庫と素材を仕込みましょう。年が明けると客足がぱったり減るので、売れ残りに注意。3月第4週で決算です。</li>
+  <li><b>税金と突発の出費</b>：毎年の決算で利益の30%の税金が決まり、翌月末に払います。年に一度、機械の故障などで修理代もかかります（設備が大きいほど高い）。支払い欄が赤いときは、いつもより多く払う月です。お金は残しておきましょう。</li>
+  <li><b>季節</b>：4月は桜の観光客でピンク・あお・みどり、2月は春節の観光客であか・きんが売れます。11〜12月の年末商戦が最大の山場ですが、素材の入荷が細り職人も雇えなくなるので、10月までに在庫と素材を仕込みましょう。年が明けると客足がぱったり減るので、売れ残りに注意。毎年3月末に決算があり、3年目の終わりで最終決算です。年を追うごとにお客さんが増えますが、家賃も上がります。</li>
   <li><b>できごと</b>：テレビ特集やSNSのバズで特定の色が売れたり、台風・原材料高騰・ホルムズ海峡封鎖（きんが作れなくなる）が起きたりします。ニュースを見逃さずに。</li>
   <li><b>きん</b>は売値が高い高級品。普段はあまり売れませんが、年末商戦と春節で人気です。</li>
   <li>腕に覚えがあれば、<b>年商${yen(REVENUE_GOAL)}</b>を目指そう。</li></ul></div>
@@ -123,7 +133,7 @@ function openHelp(after) {
   $('#ok').onclick = () => { closeModal(); if (after) after(); };
 }
 function openLog() {
-  modal(`<h2>ニュースの履歴</h2><p class="sub">ここまでの年商 ${yen(S.stats.rev)}（目標 ${yen(REVENUE_GOAL)}）</p><div class="log">${S.news.slice(0, 20).map(n => `<p>${esc(n.t)}</p>`).join('') || '<p>まだありません</p>'}</div>`);
+  modal(`<h2>ニュースの履歴</h2><p class="sub">今年の年商 ${yen(S.year.rev)}（目標 ${yen(REVENUE_GOAL)}）</p><div class="log">${S.news.slice(0, 20).map(n => `<p>${esc(n.t)}</p>`).join('') || '<p>まだありません</p>'}</div>`);
 }
 function showTitle() {
   const sv = load();
