@@ -1,5 +1,8 @@
 // DOM の更新（パネル表示・モーダル・トースト）
-import { CK, TOTAL, COLORS, QTY, POP } from './constants.js';
+import { CK, TOTAL, COLORS, POP, SELF_RATE, CRAFT } from './constants.js';
+
+// 生産スピードのピップ1個あたりの生産量（素早さ★5を最大人数雇ったときにちょうど6個）
+const PIP = (SELF_RATE + CRAFT.max * 5 * CRAFT.ratePerSpeed) / 6;
 import { MINI, spr, darPal, paintStatic } from './sprites.js';
 import { yen, cnt, dateStr } from './util.js';
 import * as sim from './sim.js';
@@ -34,7 +37,7 @@ export function renderUI(S, speed) {
   $('#pop').innerHTML = '人気 ' + [1, 2, 3, 4, 5].map(i => `<i class="${i <= stars ? '' : 'off'}">★</i>`).join('');
   $('#pop').title = POP.names[stars - 1];
   // 生産スピードのだるまピップ
-  const reason = sim.prodReason(S), r = sim.prodRate(S), filled = reason ? 0 : Math.min(6, Math.round(r / QTY));
+  const reason = sim.prodReason(S), r = sim.prodRate(S), filled = reason ? 0 : Math.min(6, Math.max(1, Math.round(r / PIP)));
   pipCtx.clearRect(0, 0, 54, 8);
   for (let i = 0; i < 6; i++) spr(MINI, darPal(i < filled ? (S.color === 'stop' ? 'red' : S.color) : 'gray'), i * 9 + 1, 0, 1, pipCtx);
   $('#sProdTxt').textContent = reason;

@@ -12,8 +12,8 @@ async function setWorstCase(page) {
     const S = window.__daruma.S;
     S.cash = 99999999;
     S.recv.push({ amt: 9999999, due: 99 });
-    S.staff = ['tatsu', 'hana'];
-    S.rackLv = 3; S.whLv = 3;
+    S.staff = [0, 1, 2, 3, 4, 5].map(id => ({ id, name: 'テスト', skill: 5, speed: 5, wage: 1075000, fee: 1290000, desc: '', look: {} }));
+    S.rackLv = 8; S.whLv = 6;
     S.mat = 12345; S.fin = { red: 23456, green: 12345, sky: 9876, yellow: 16543 };
     S.rack = [{ c: 'red', n: 9999, ready: 2 }, { c: 'sky', n: 8888, ready: 99 }];
     S.today = { sold: 12345, missed: 98765, rev: 0 };

@@ -52,11 +52,19 @@ export const POP = {
 // 固定費・投資（家賃・給料は難易度調整で v1×QTY より高め）
 export const RENT = 500000;
 export const START_CASH = 2400000;
-export const STAFF = {
-  tatsu: { name: 'タツ', desc: '作業が速いベテラン', fee: 600000, wage: 600000, rate: 2.5 * QTY },
-  hana: { name: 'ハナ', desc: '堅実な職人', fee: 600000, wage: 600000, rate: 1.5 * QTY },
+// 職人。名簿（roster.js）の100人から、週ごとに入れ替わる求職者を雇う
+export const CRAFT = {
+  max: 6, // 同時に雇える人数
+  poolSize: 4, poolEvery: 5, // 求職者の人数と入れ替わる間隔（日）。1ヶ月10日なので「週」＝5日
+  ratePerSpeed: 0.8 * QTY, // 素早さ★1あたりの生産（個/日）
+  selfSkill: 2, // 本人のうまさ。工房の腕前の基準（★2で人気の上がり方1倍）
+  // 月給＝base＋perSpeed×素早さ＋perSkill×うまさ＋both×素早さ×うまさ（円）
+  wage: { base: 100000, perSpeed: 60000, perSkill: 60000, both: 15000 },
+  feeRatio: 1.2, // 契約金＝月給×この倍率
 };
-export const RACK_UP = [960000, 1440000, 1920000], WH_UP = [600000, 960000, 1440000];
+// 乾燥棚・倉庫の増強（段階ごとの費用。配列の長さが段階数）
+export const RACK_UP = [960000, 1440000, 1920000, 2400000, 3000000, 3600000, 4300000, 5000000];
+export const WH_UP = [600000, 960000, 1440000, 2000000, 2600000, 3300000];
 // 総資産による称号（上から判定）
 export const RANKS = [[48000000, 'だるま大名'], [24000000, '名工'], [9600000, '一人前'], [0, '見習い']];
 export const REVENUE_GOAL = 100000000;

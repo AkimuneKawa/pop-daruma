@@ -1,6 +1,6 @@
 // 自動プレイでバランスを検証する。
 // 使い方: npm run autoplay [-- 試行回数]
-// 目安（難しめ）: 投資なし＝一人前6割・見習い4割、投資あり＝ほぼ一人前・閉店5%前後（年商 中央値約7,600万）、人気★5は11月ごろ
+// 目安（難しめ）: 投資なし＝一人前7割・見習い3割、投資あり＝一人前中心・名工1〜2割（年商 中央値約8,300万）、人気★5は12月ごろ
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt } from '../src/util.js';
 import { CK, TOTAL, RENT, MAT, REVENUE_GOAL, QTY } from '../src/constants.js';
@@ -23,11 +23,14 @@ function active(S) {
   const target = d >= 70 && d < 95 ? 8 : 5; // 年末ラッシュ前は多めに備蓄
   const k = CK.reduce((a, c) => (cover(c) < cover(a) ? c : a), CK[0]);
   S.color = d >= TOTAL - 4 || cover(k) >= target ? 'stop' : k;
-  // 支払い分を残して投資する
+  // 支払い分を残して投資する。職人は「作る量＋うまさ」あたりの給料が割安な人から雇う
   const reserve = sim.monthly(S) * 2;
   for (const it of sim.investItems(S)) {
     if (!it.done && S.cash - it.cost >= reserve && d < 90) sim.invest(S, it.id);
   }
+  const value = c => (sim.craftRate(c) + c.skill * 0.3 * QTY) / c.wage;
+  const best = sim.poolCrafts(S).sort((a, b) => value(b) - value(a))[0];
+  if (best && d < 90 && S.cash - best.fee >= (sim.monthly(S) + best.wage) * 2) sim.hire(S, best.id);
   // 素材は3日分を目安に、支払い分を残して買う
   const keep = sim.monthly(S) * (10 - S.day % 10 <= 3 ? 1 : 0.5);
   if (S.color !== 'stop' && S.mat < sim.prodRate(S) * 3 && S.cash - sim.buyQty(S) * sim.matPrice(S) >= keep && sim.matPrice(S) <= MAT * 2) sim.buy(S);

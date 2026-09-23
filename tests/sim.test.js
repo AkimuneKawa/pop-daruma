@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt, poisson } from '../src/util.js';
-import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP, RENT } from '../src/constants.js';
+import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP, RENT, CRAFT } from '../src/constants.js';
 import { migrate } from '../src/save.js';
+import { ROSTER, wageOf } from '../src/roster.js';
 import { play, passive, active } from '../scripts/autoplay.js';
 
 describe('newGame', () => {
@@ -106,6 +107,55 @@ describe('popularity', () => {
   it('人気の無い旧セーブは legacy の割合で補う', () => {
     const S = sim.normalize({ fin: { red: 0 } });
     expect(S.pop).toBe(POP.max * POP.legacy);
+  });
+});
+
+describe('craftsmen', () => {
+  it('名簿は100人で、うまさ・素早さが高いほど月給が高い', () => {
+    expect(ROSTER).toHaveLength(100);
+    expect(new Set(ROSTER.map(c => c.name)).size).toBe(100);
+    expect(wageOf(5, 5)).toBeGreaterThan(wageOf(3, 3));
+    expect(wageOf(3, 3)).toBeGreaterThan(wageOf(1, 1));
+    expect(wageOf(4, 2)).toBeGreaterThan(wageOf(2, 2));
+    expect(wageOf(2, 4)).toBeGreaterThan(wageOf(2, 2));
+  });
+  it('求職者は5日ごとに入れ替わり、雇うと生産と給料が増える', () => {
+    const rng = seeded(4);
+    const S = sim.newGame(rng);
+    expect(S.pool).toHaveLength(CRAFT.poolSize);
+    const c = sim.poolCrafts(S)[0];
+    S.cash = 1e8;
+    const rate = sim.prodRate(S), pay = sim.monthly(S);
+    expect(sim.hire(S, c.id)).toContain(c.name);
+    expect(sim.prodRate(S)).toBe(rate + c.speed * CRAFT.ratePerSpeed);
+    expect(sim.monthly(S)).toBe(pay + c.wage);
+    expect(S.pool).not.toContain(c.id);
+    const before = S.pool.slice();
+    sim.newDay(S, 5, {}, rng);
+    expect(S.pool).not.toEqual(before);
+    expect(S.pool).not.toContain(c.id); // 雇っている人は求職者に出ない
+    sim.fire(S, c.id);
+    expect(S.staff).toHaveLength(0);
+  });
+  it('最大人数を超えては雇えない', () => {
+    const S = sim.newGame(seeded(1));
+    S.cash = 1e9;
+    S.staff = ROSTER.slice(90, 90 + CRAFT.max).map(c => ({ ...c }));
+    expect(sim.hire(S, S.pool[0])).toBeNull();
+  });
+  it('うまさの高い職人がいると人気の上がり方が大きい', () => {
+    const S = sim.newGame(seeded(1));
+    expect(sim.skillMult(S)).toBe(1);
+    S.staff = [{ ...ROSTER[0], skill: 5, speed: 5 }];
+    expect(sim.skillMult(S)).toBeGreaterThan(1.5);
+    S.staff = [{ ...ROSTER[0], skill: 1, speed: 5 }];
+    expect(sim.skillMult(S)).toBeLessThan(1);
+  });
+  it('旧版の職人（tatsu/hana）は名簿の職人に置き換える', () => {
+    const S = sim.normalize({ fin: { red: 0 }, pop: 0, staff: ['tatsu', 'hana'] });
+    expect(S.staff.map(c => c.name)).toEqual(['タツ', 'ハナ']);
+    expect(S.staff[0].speed).toBe(3);
+    expect(S.pool.length).toBe(CRAFT.poolSize);
   });
 });
 

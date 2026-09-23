@@ -1,7 +1,8 @@
 // ゲームのシミュレーション本体。DOM に依存しない。
 // 状態 S を引数で受け取り、画面側への通知は hooks 経由で行う。
-import { COLORS, CK, TOTAL, DRY, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, STAFF, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP } from './constants.js';
+import { COLORS, CK, TOTAL, DRY, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP } from './constants.js';
 import { rint, pick, yen, cnt, poisson, monthOf, dateStr } from './util.js';
+import { ROSTER, wageOf } from './roster.js';
 
 /* ---------- 派生値 ---------- */
 export const rackCap = S => RACK_BASE + RACK_STEP * S.rackLv;
@@ -12,9 +13,20 @@ export const finN = S => CK.reduce((a, k) => a + S.fin[k], 0);
 export const whUsed = S => S.mat + finN(S);
 export const whFree = S => whCap(S) - whUsed(S);
 export const rackFree = S => rackCap(S) - rackUsed(S);
-export const staffRate = S => S.staff.reduce((a, id) => a + STAFF[id].rate, 0);
-export const prodRate = S => SELF_RATE + (S.lowMorale ? staffRate(S) / 2 : staffRate(S));
-export const monthly = S => RENT + S.staff.reduce((a, id) => a + STAFF[id].wage, 0);
+// 職人 S.staff は名簿から写した {id, name, skill, speed, wage, fee, desc, look}
+export const craftRate = c => c.speed * CRAFT.ratePerSpeed;
+const staffMorale = S => (S.lowMorale ? 0.5 : 1);
+export const staffRate = S => S.staff.reduce((a, c) => a + craftRate(c), 0);
+export const prodRate = S => SELF_RATE + staffRate(S) * staffMorale(S);
+export const monthly = S => RENT + S.staff.reduce((a, c) => a + c.wage, 0);
+// 工房の腕前：本人と職人のうまさを、作る量で重み付けした平均
+export const teamSkill = S => {
+  const m = staffMorale(S);
+  const w = S.staff.reduce((a, c) => a + craftRate(c) * m, SELF_RATE);
+  return S.staff.reduce((a, c) => a + craftRate(c) * m * c.skill, SELF_RATE * CRAFT.selfSkill) / w;
+};
+// 満足した客で上がる人気の倍率（腕前★2で1倍）
+export const skillMult = S => teamSkill(S) / CRAFT.selfSkill;
 export const recvTotal = S => S.recv.reduce((a, r) => a + r.amt, 0);
 export const matPrice = S => Math.round(MAT * S.m / PRICE_UNIT) * PRICE_UNIT;
 export const phase = (e, d) => (d >= e.start && d < e.start + e.len) ? 'act' : ((d >= e.start - e.ann && d < e.start) ? 'ann' : null);
@@ -37,16 +49,40 @@ export function newGame(rng = Math.random) {
     t: 0, day: 0, cash: START_CASH, mat: START_MAT, fin: { red: START_RED, green: 0, sky: 0, yellow: 0 }, rack: [], color: 'red', prog: 0,
     rackLv: 0, whLv: 0, staff: [], recv: [], m: 1, sup: 0, noise: 1, events: genEvents(rng), strikes: 0, lowMorale: false,
     stats: { sold: 0, missed: 0, rev: 0 }, today: { sold: 0, missed: 0, rev: 0 }, news: [], banner: '', over: false,
-    pop: 0, popStars: 1,
+    pop: 0, popStars: 1, pool: [],
   };
+  refreshPool(S, rng);
   updateMarket(S, true);
   S.banner = '4月1日、だるま堂 開店！素材を切らさないように';
   S.news = [{ t: '職人が「作る色」のだるまを自動で作ります' }, { t: 'お客さんの欲しいだるまを切らさず売ると、人気が上がって客足が増えます' }, { t: '12月〜1月の年末ラッシュが一番の書き入れ時です' }];
   return S;
 }
+// 求職者を入れ替える（雇っている人は除く）
+export function refreshPool(S, rng = Math.random) {
+  const hired = new Set(S.staff.map(c => c.id));
+  const free = ROSTER.filter(c => !hired.has(c.id)).map(c => c.id);
+  const pool = [];
+  while (pool.length < CRAFT.poolSize && free.length) pool.push(free.splice(rint(0, free.length - 1, rng), 1)[0]);
+  S.pool = pool;
+}
+export const nextPoolIn = S => CRAFT.poolEvery - (S.day % CRAFT.poolEvery);
+// 旧版の職人（'tatsu'・'hana'）は同じくらいの能力の職人に置き換える
+const LEGACY_STAFF = { tatsu: { skill: 3, speed: 3 }, hana: { skill: 3, speed: 2 } };
 // 旧セーブに無いフィールドを補う
 export function normalize(S) {
-  if (S && typeof S.pop !== 'number') { S.pop = POP.max * POP.legacy; S.popStars = popStars(S); }
+  if (!S) return S;
+  if (typeof S.pop !== 'number') { S.pop = POP.max * POP.legacy; S.popStars = popStars(S); }
+  if (!Array.isArray(S.staff)) S.staff = [];
+  if (S.staff.some(c => typeof c === 'string')) {
+    S.staff = S.staff.map(c => {
+      if (typeof c !== 'string') return c;
+      const base = ROSTER.find(r => r.name === (c === 'tatsu' ? 'タツ' : 'ハナ'));
+      const { skill, speed } = LEGACY_STAFF[c] ?? { skill: 3, speed: 3 };
+      const wage = wageOf(skill, speed);
+      return { ...base, skill, speed, wage, fee: wage };
+    });
+  }
+  if (!Array.isArray(S.pool)) refreshPool(S);
   return S;
 }
 export const isValidSave = sv => !!(sv && sv.fin && typeof sv.fin.red === 'number' && Array.isArray(sv.rack) && sv.rack.every(r => typeof r.n === 'number'));
@@ -102,7 +138,7 @@ export function rollBuyer(rng = Math.random) {
 // 色 k を n 個欲しい type の客が来る。在庫があるだけ売れ、残りは売り逃し。満足度で人気が動く
 function arrive(S, k, n, mult, type) {
   const sold = Math.min(n, S.fin[k]), missed = n - sold, amt = sold * unitPrice(mult);
-  if (sold === n) S.pop += POP.gain[type];
+  if (sold === n) S.pop += POP.gain[type] * skillMult(S);
   else if (sold === 0) S.pop = Math.max(0, S.pop - POP.miss);
   S.fin[k] -= sold;
   S.today.sold += sold; S.today.rev += amt; S.stats.sold += sold; S.stats.rev += amt;
@@ -197,6 +233,7 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
   S.noise = 0.7 + rng() * 0.6;
   updateMarket(S, false);
   hot = hot.concat(dayNews(S, nd));
+  if (nd % CRAFT.poolEvery === 0) { refreshPool(S, rng); hot.push('求職者が入れ替わった（投資メニューから雇える）'); }
   const stars = popStars(S);
   if (stars > S.popStars) hot.push(`人気が上がった！「${POP.names[stars - 1]}」に。客足が増える`);
   if (stars < S.popStars) hot.push(`品切れ続きで人気が下がった…「${POP.names[stars - 1]}」に`);
@@ -231,21 +268,35 @@ export function prodReason(S) {
 // 投資メニューの項目。done が空文字なら購入可能な状態
 export function investItems(S) {
   const items = [
-    { id: 'rack', name: '乾燥棚を増やす', sub: `+${cnt(RACK_STEP)}個（いま${cnt(rackCap(S))}個）`, cost: RACK_UP[S.rackLv], done: S.rackLv >= 3 ? '最大' : '' },
-    { id: 'wh', name: '倉庫を広げる', sub: `+${cnt(WH_STEP)}個（いま${cnt(whCap(S))}個）`, cost: WH_UP[S.whLv], done: S.whLv >= 3 ? '最大' : '' },
+    { id: 'rack', name: '乾燥棚を増やす', sub: `+${cnt(RACK_STEP)}個（いま${cnt(rackCap(S))}個）`, cost: RACK_UP[S.rackLv], done: S.rackLv >= RACK_UP.length ? '最大' : '', lv: `${S.rackLv}/${RACK_UP.length}` },
+    { id: 'wh', name: '倉庫を広げる', sub: `+${cnt(WH_STEP)}個（いま${cnt(whCap(S))}個）`, cost: WH_UP[S.whLv], done: S.whLv >= WH_UP.length ? '最大' : '', lv: `${S.whLv}/${WH_UP.length}` },
   ];
-  for (const id of ['tatsu', 'hana']) {
-    const s = STAFF[id];
-    items.push({ id, name: `職人 ${s.name} を雇う`, sub: `${s.desc}。生産+${cnt(s.rate)}個/日。月給${yen(s.wage)}`, cost: s.fee, done: S.staff.includes(id) ? '雇用中' : '' });
-  }
   return items;
 }
-// 投資を実行してトースト用の文言を返す（可否チェックは呼び出し側＝ボタンの disabled）
+// 今週の求職者（雇える人）
+export const poolCrafts = S => S.pool.map(id => ROSTER[id]);
+export const canHire = (S, c) => S.staff.length < CRAFT.max && S.cash >= c.fee && S.pool.includes(c.id);
+// 投資（乾燥棚・倉庫）を実行してトースト用の文言を返す（可否チェックは呼び出し側＝ボタンの disabled）
 export function invest(S, u) {
   if (u === 'rack') { S.cash -= RACK_UP[S.rackLv]; S.rackLv++; return '乾燥棚を増やした'; }
   if (u === 'wh') { S.cash -= WH_UP[S.whLv]; S.whLv++; return '倉庫を広げた'; }
-  S.cash -= STAFF[u].fee; S.staff.push(u);
-  return `${STAFF[u].name}が工房に加わった`;
+  return '';
+}
+// 求職者を雇う。雇えなければ null
+export function hire(S, id) {
+  const c = ROSTER[id];
+  if (!c || !canHire(S, c)) return null;
+  S.cash -= c.fee;
+  S.staff.push({ ...c, look: { ...c.look } });
+  S.pool = S.pool.filter(p => p !== id);
+  return `${c.name}が工房に加わった`;
+}
+// 職人にやめてもらう（契約金は戻らない）
+export function fire(S, id) {
+  const c = S.staff.find(x => x.id === id);
+  if (!c) return null;
+  S.staff = S.staff.filter(x => x.id !== id);
+  return `${c.name}が工房を去った`;
 }
 
 /* ---------- 決算 ---------- */

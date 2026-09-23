@@ -1,6 +1,6 @@
 // 起動・ゲームループ・プレイヤー操作の配線
 import './style.css';
-import { DAY_SEC, STOCK_VALUE, REVENUE_GOAL, BUY_N, POP } from './constants.js';
+import { DAY_SEC, STOCK_VALUE, REVENUE_GOAL, BUY_N, POP, CRAFT } from './constants.js';
 import { yen, cnt, esc } from './util.js';
 import * as sim from './sim.js';
 import { save as saveState, load } from './save.js';
@@ -49,13 +49,26 @@ function setSpeed(s) {
   document.querySelectorAll('.spd').forEach(b => b.classList.toggle('on', +b.dataset.s === s));
   renderUI();
 }
+const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+const craftLine = c => `<b class="cn">${c.name}</b><span class="cs">うまさ<span class="st">${stars(c.skill)}</span>素早さ<span class="st">${stars(c.speed)}</span></span><small>${c.desc}。生産+${cnt(sim.craftRate(c))}個/日・月給${yen(c.wage)}</small>`;
 function openInvest() {
+  let confirmFire = null; // 「やめてもらう」は2回押しで確定
   const draw = () => {
-    const h = sim.investItems(S).map(it => `<div class="row"><div class="grow">${it.name}<br><small>${it.sub}</small></div>${it.done ? `<span class="sub">${it.done}</span>` : `<button class="mbtn orange" data-u="${it.id}" ${S.cash >= it.cost ? '' : 'disabled'}>${yen(it.cost)}</button>`}</div>`).join('');
-    modal(`<h2>投資</h2><p class="sub">金額をタップすると購入します。所持金 ${yen(S.cash)}／毎月の支払い ${yen(sim.monthly(S))}</p>${h}`);
-    $('#dlg').querySelectorAll('[data-u]').forEach(b => b.onclick = () => {
-      toast(sim.invest(S, b.dataset.u));
-      save(); renderUI(); draw();
+    const up = sim.investItems(S).map(it => `<div class="row"><div class="grow">${it.name} <small>段階${it.lv}</small><br><small>${it.sub}</small></div>${it.done ? `<span class="sub">${it.done}</span>` : `<button class="mbtn orange" data-u="${it.id}" ${S.cash >= it.cost ? '' : 'disabled'}>${yen(it.cost)}</button>`}</div>`).join('');
+    const mine = S.staff.map(c => `<div class="row"><div class="grow craft">${craftLine(c)}</div><button class="mbtn sm" data-fire="${c.id}">${confirmFire === c.id ? '本当に？' : 'やめてもらう'}</button></div>`).join('') || '<p class="sub">まだ誰も雇っていません</p>';
+    const full = S.staff.length >= CRAFT.max;
+    const pool = sim.poolCrafts(S).map(c => `<div class="row"><div class="grow craft">${craftLine(c)}</div><button class="mbtn orange" data-hire="${c.id}" ${sim.canHire(S, c) ? '' : 'disabled'}>雇う<br><small>${yen(c.fee)}</small></button></div>`).join('') || '<p class="sub">今週の求職者はもういません</p>';
+    modal(`<h2>投資</h2><p class="sub">所持金 ${yen(S.cash)}／毎月の支払い ${yen(sim.monthly(S))}</p>${up}
+      <h3 class="mh">職人 ${S.staff.length}/${CRAFT.max}人 <small>工房の腕前 ${sim.teamSkill(S).toFixed(1)}</small></h3>${mine}
+      <h3 class="mh">今週の求職者 <small>あと${sim.nextPoolIn(S)}日で入れ替わり${full ? '／職人がいっぱいです' : ''}</small></h3>${pool}
+      <p class="sub">うまさが高い職人がいると、お客さんが満足したときに人気が上がりやすくなります。素早さは作る速さです。</p>`);
+    const dlg = $('#dlg');
+    dlg.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { toast(sim.invest(S, b.dataset.u)); save(); renderUI(); draw(); });
+    dlg.querySelectorAll('[data-hire]').forEach(b => b.onclick = () => { const t = sim.hire(S, +b.dataset.hire); if (t) { toast(t); save(); renderUI(); } draw(); });
+    dlg.querySelectorAll('[data-fire]').forEach(b => b.onclick = () => {
+      const id = +b.dataset.fire;
+      if (confirmFire !== id) { confirmFire = id; draw(); return; }
+      confirmFire = null; toast(sim.fire(S, id)); save(); renderUI(); draw();
     });
   };
   draw();
@@ -67,6 +80,7 @@ function openHelp(after) {
   <li><b>やめる</b>にすると素材を素材のまま温存できます。どの色にも使えるので、流行が読めないときの備えになります。</li>
   <li><b>販売</b>：お客さんが来て自動で売れます。ふつうのお客さんは1〜3個、土産物屋はまとめて、卸の業者は最大100個買っていきます。在庫が足りない分は売り逃し。お金が入るのは3日後です。</li>
   <li><b>人気</b>：欲しいだるまを全部買えたお客さんが増えるほど人気が上がり（★1〜★5）、客足が増えます。売り切れで何も買えないと人気が下がります。</li>
+  <li><b>職人</b>：投資メニューから雇えます（最大${CRAFT.max}人）。求職者は5日ごとに入れ替わります。素早さが高いほどたくさん作り、うまさが高いほど人気が上がりやすくなります。どちらも高い人ほど給料も高めです。</li>
   <li><b>素材を買う</b>：1タップで${cnt(BUY_N)}個。特需の予告が出ると相場が上がり、特需中は入荷が絞られます。</li>
   <li><b>月末</b>に家賃と給料を払います。払えないと資金ショート、3回で閉店。</li>
   <li>12月〜1月の年末ラッシュが最大の山場。3月10日で決算です。</li>

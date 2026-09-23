@@ -183,15 +183,16 @@ function drawShelf() {
 }
 function drawWorkers(fr, working) {
   const P0 = { K: INK, H: '#2a1a14', R: '#fff6e6', S: '#f6c9a0', A: '#2f63d6', P: '#fff6e6' };
-  const team = [{ x: 74, pal: P0 }];
-  if (S.staff.includes('tatsu')) team.push({ x: 106, pal: { ...P0, H: '#8a8a8a', A: '#fff6e6', P: '#f0782a' } });
-  if (S.staff.includes('hana')) team.push({ x: 138, pal: { ...P0, A: '#f0782a', P: '#fff6e6' } });
-  team.forEach((m, i) => {
+  const team = [P0, ...S.staff.map(c => ({ ...P0, ...c.look }))];
+  // 3人までは広く、それ以上は作業台（x=64〜194）に詰めて並べる
+  const wide = team.length <= 3, gap = wide ? 32 : (174 - 64) / (team.length - 1);
+  team.forEach((pal, i) => {
+    const x = Math.round(wide ? 74 + i * gap : 64 + i * gap);
     const b = working ? ((fr + i) % 2) : 0;
-    sp(PERSON, m.pal, m.x, 74 + b, 2);
+    sp(PERSON, pal, x, 74 + b, 2);
     const col = S.color === 'stop' ? null : S.color;
-    if (col) sp(BIG, darPal(col), m.x + 13, 90);
-    if (working) { R(m.x + 4 + b * 2, 86 - b, 1, 7, '#8a5a2b'); R(m.x + 4 + b * 2, 85 - b, 1, 1, col ? COLORS[col].b : INK); }
+    if (col) { if (wide) sp(BIG, darPal(col), x + 13, 90); else sp(MINI, darPal(col), x + 11, 94); }
+    if (working) { R(x + 4 + b * 2, 86 - b, 1, 7, '#8a5a2b'); R(x + 4 + b * 2, 85 - b, 1, 1, col ? COLORS[col].b : INK); }
   });
   // 作業台
   R(62, 102, 132, 6, '#c98a4a'); R(62, 102, 132, 1, INK); R(62, 108, 132, 1, INK);
