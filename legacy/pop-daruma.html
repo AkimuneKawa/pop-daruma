@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ポップだるま堂 繁盛記</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3e6c8;--paper:#fbf1dc;--ink:#2a2320;--line:#2a2320;--muted:#7a6650;
+  --red:#d8382a;--red2:#a82418;--orange:#f0782a;--mint:#4fb58e;--mint2:#2f8a68;--yellow:#f5c742;--blue:#2f63d6;--gray:#b8ada0;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  font-size:clamp(9px,min(1.72vh,3.05vw),16px);
+  font-size:clamp(9px,min(1.72dvh,3.05vw),16px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#231d30;--paper:#fbf1dc;}}
+:root[data-theme="dark"]{--bg:#231d30;--paper:#fbf1dc;}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:"DotGothic16","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;line-height:1.25;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+canvas.ico,canvas.dar{image-rendering:pixelated;image-rendering:crisp-edges;flex:none}
+canvas.ico{width:1.35em;height:1.35em}
+.app{height:100%;max-width:500px;margin:0 auto;display:flex;flex-direction:column;justify-content:space-between;gap:.4rem;padding:.4rem .45rem .5rem}
+.box{background:var(--paper);border:.18rem solid var(--line);box-shadow:.2rem .2rem 0 var(--line)}
+
+/* header */
+.top{display:grid;grid-template-columns:1.45fr .85fr 1.2fr;gap:.35rem;flex:none}
+.logo{background:var(--red);color:#fff6e6;border:.18rem solid var(--line);box-shadow:.2rem .2rem 0 var(--line);outline:.12rem solid #f5c742;outline-offset:-.42rem;display:flex;align-items:center;justify-content:center;gap:.2rem;padding:.35rem .3rem}
+.logo .lt{font-size:1.45rem;line-height:1.05;text-shadow:.1rem .1rem 0 var(--red2),-.08rem -.08rem 0 var(--red2);white-space:nowrap}
+.logo .ls{display:block;margin:.15rem auto 0;width:max-content;background:var(--ink);color:var(--yellow);font-size:1.05rem;padding:0 .5rem;letter-spacing:.2em}
+.logo canvas.dar{width:2.1rem;height:2.1rem}
+.datebox{display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.2rem}
+.datebox b{display:block;white-space:nowrap;font-weight:normal;font-size:1.3rem}
+.datebox small{display:block;white-space:nowrap;font-size:.85rem;color:var(--muted)}
+.cashbox{border-color:var(--mint2);outline:.12rem solid var(--mint);outline-offset:-.4rem;padding:.35rem .6rem;display:flex;flex-direction:column;justify-content:center}
+.cashbox .cl{display:flex;align-items:center;gap:.3rem;font-size:.95rem}
+.cashbox b{white-space:nowrap;font-weight:normal;font-size:1.65rem;text-align:right;letter-spacing:.02em}
+.subbar{flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:.25rem .5rem;font-size:.95rem;gap:.4rem}
+.subbar span{display:flex;align-items:center;gap:.3rem;white-space:nowrap}
+.subbar .sep{width:.15rem;height:1.2rem;background:var(--line)}
+.subbar em{font-style:normal;color:var(--red);font-size:1.15rem}
+.subbar b{font-weight:normal;margin-left:auto;font-size:1.05rem}
+
+/* stage */
+.stage{position:relative;flex:1 1 auto;max-height:calc(min(100vw - .9rem,500px - .9rem)*.82);min-height:6rem;border:.18rem solid var(--line);box-shadow:.2rem .2rem 0 var(--line);background:#f3e2bf;overflow:hidden}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
+.ptag{position:absolute;left:.4rem;top:.4rem;background:var(--blue);color:#fff6e6;border:.15rem solid var(--line);padding:.1rem .5rem;font-size:.95rem;display:none}
+.ptag.show{display:block}
+
+/* news */
+.newsbar{flex:none;display:flex;align-items:center;gap:.4rem;padding:.25rem .4rem;cursor:pointer;font:inherit;color:inherit;text-align:left;width:100%}
+.newsbar canvas.ico{width:1.9rem;height:1.9rem}
+.newsbar .tag{background:var(--red);color:#fff6e6;padding:.1rem .45rem;font-size:.9rem;flex:none}
+.newsbar .nt{flex:1;min-width:0;font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.newsbar .mood{flex:none;background:var(--yellow);border:.14rem solid var(--line);padding:.05rem .4rem;font-size:.85rem}
+.newsbar.flash .nt{animation:fl .45s steps(2) 5}
+@keyframes fl{50%{color:var(--red)}}
+
+/* panels */
+.panel{flex:none;padding:0}
+.panel h3{margin:0;background:var(--mint);color:#fff6e6;border-bottom:.18rem solid var(--line);font-weight:normal;font-size:1.1rem;padding:.2rem .5rem;display:flex;align-items:center;gap:.35rem;text-shadow:.08rem .08rem 0 var(--mint2)}
+.panel h3 small{margin-left:auto;font-size:.8rem;text-shadow:none}
+.pbody{display:grid;grid-template-columns:1.1fr 1fr;padding:.3rem .5rem .4rem}
+.pl{padding-right:.5rem;border-right:.14rem solid var(--line)}
+.pr{padding-left:.6rem;display:flex;flex-direction:column;justify-content:space-between}
+.sr{white-space:nowrap;display:flex;align-items:center;gap:.35rem;font-size:.95rem;padding:.2rem 0;border-bottom:.1rem dashed var(--gray);min-height:1.85rem}
+.sr:last-child{border-bottom:none}
+.sr b,.sr .sv{margin-left:auto;font-weight:normal;font-size:1.15rem;display:flex;align-items:center;gap:.25rem}
+.sr .sv em{font-style:normal;font-size:.85rem;color:var(--red)}
+.red{color:var(--red)}
+#prodPips{width:4.6rem;height:.75rem;image-rendering:pixelated;image-rendering:crisp-edges}
+.sh{display:flex;align-items:center;gap:.3rem;font-size:.95rem}
+.sh b{font-weight:normal;margin-left:auto;font-size:.95rem}
+.mk{display:flex;gap:.25rem;margin:.25rem 0 .35rem}
+.mk span{flex:1;text-align:center;font-size:.82rem;padding:.2rem 0;border:.13rem solid var(--gray);color:var(--gray);background:#f1e8d6}
+.mk span.on{color:var(--ink);border-color:var(--line)}
+#mk0.on{background:#9fe0c4}#mk1.on{background:var(--yellow)}#mk2.on{background:#f19a8e}
+.stock{display:grid;grid-template-columns:repeat(4,1fr);text-align:center;margin-top:.2rem}
+.stock canvas.dar{width:2.3rem;height:2.3rem;display:block;margin:0 auto}
+.stock b{font-weight:normal;font-size:1.15rem}
+
+/* colors */
+.colors{display:grid;grid-template-columns:repeat(5,1fr);gap:.35rem;padding:.4rem}
+.cbtn{font:inherit;font-size:1rem;color:#fff6e6;border:.18rem solid var(--line);box-shadow:0 .25rem 0 var(--line);padding:.3rem 0 .25rem;display:flex;flex-direction:column;align-items:center;gap:.1rem;cursor:pointer;position:relative;text-shadow:.08rem .08rem 0 rgba(0,0,0,.35)}
+.cbtn canvas.dar{width:2.6rem;height:2.6rem}
+.cbtn[data-c=red]{background:#d8382a}.cbtn[data-c=green]{background:#3aae78}.cbtn[data-c=sky]{background:#3a78d8}.cbtn[data-c=yellow]{background:#f2c230;color:var(--ink);text-shadow:none}.cbtn[data-c=stop]{background:#a8a097}
+.cbtn .blank{width:2.6rem;height:2.6rem;border-radius:50% 50% 45% 45%;background:#7d766e;display:block}
+.cbtn.on{transform:translateY(.25rem);box-shadow:0 0 0 var(--line);outline:.22rem solid var(--yellow);outline-offset:.05rem}
+.cbtn.on::after{content:"つくり中";position:absolute;top:-.55rem;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--yellow);font-size:.7rem;padding:0 .3rem;white-space:nowrap;text-shadow:none}
+.cbtn[data-c=stop].on::after{content:"停止中"}
+
+/* controls */
+.ctrl{flex:none;display:grid;grid-template-columns:1.65fr .85fr 1.35fr;gap:.4rem;margin-top:.1rem}
+.btn{font:inherit;color:#fff6e6;border:.18rem solid var(--line);box-shadow:0 .28rem 0 var(--line);cursor:pointer;touch-action:manipulation;position:relative}
+.btn:active:not(:disabled),.spd:active{transform:translateY(.28rem);box-shadow:0 0 0 var(--line)}
+.btn:disabled{filter:grayscale(.7);opacity:.6;cursor:not-allowed}
+.btn:focus-visible,.cbtn:focus-visible,.spd:focus-visible,.newsbar:focus-visible{outline:.2rem dashed var(--blue);outline-offset:.15rem}
+.buy{background:var(--red);display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.35rem .3rem}
+.buy canvas.ico{width:2.6rem;height:2.6rem}
+.buy .bt{white-space:nowrap;font-size:1.3rem;line-height:1.1;text-align:left}.buy .bt small{display:block;font-size:1.05rem}
+.inv{background:var(--orange);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:1.25rem;gap:.1rem}
+.inv canvas.ico{width:2rem;height:2rem}
+.spdbox{background:var(--mint);border:.18rem solid var(--line);box-shadow:.2rem .2rem 0 var(--line);padding:.15rem .3rem .35rem;text-align:center}
+.spdbox .t{color:#fff6e6;font-size:.9rem;text-shadow:.08rem .08rem 0 var(--mint2)}
+.spdrow{display:grid;grid-template-columns:repeat(3,1fr);gap:.25rem;margin-top:.15rem}
+.spd{font:inherit;font-size:1.1rem;background:var(--paper);color:var(--ink);border:.16rem solid var(--line);box-shadow:0 .2rem 0 var(--line);padding:.25rem 0;cursor:pointer}
+.spd.on{background:var(--yellow)}
+.foot{display:flex;justify-content:center;gap:1.4rem;flex:none;margin-top:-.1rem}
+.link{font:inherit;font-size:.85rem;background:none;border:none;color:var(--muted);text-decoration:underline;cursor:pointer;padding:.1rem .2rem}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .link{color:#cdbb9c}}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(24,18,14,.6);display:none;align-items:center;justify-content:center;padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px));z-index:10}
+.overlay.show{display:flex}
+.dialog{position:relative;background:var(--paper);color:var(--ink);border:3px solid var(--line);box-shadow:6px 6px 0 var(--line);width:100%;max-width:420px;max-height:100%;overflow:auto;padding:14px;font-size:15px}
+.dialog h2{margin:0 0 6px;font-size:20px;font-weight:normal}
+.dialog p{margin:6px 0}
+.dialog .sub{font-size:13px;color:var(--muted)}
+.x{position:absolute;top:6px;right:8px;font:inherit;font-size:22px;background:none;border:none;color:var(--ink);cursor:pointer}
+.row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:2px dashed var(--gray)}
+.row:last-child{border-bottom:none}
+.grow{flex:1}.grow small{color:var(--muted);font-size:12px}
+.mbtn{font:inherit;font-size:16px;color:var(--ink);background:var(--yellow);border:3px solid #2a2320;box-shadow:0 4px 0 #2a2320;padding:8px 10px;cursor:pointer}
+.mbtn:active:not(:disabled){transform:translateY(4px);box-shadow:none}
+.mbtn:disabled{opacity:.45;cursor:not-allowed}
+.mbtn.big{display:block;width:100%;margin-top:10px;font-size:18px;padding:10px}
+.mbtn.red{background:var(--red);color:#fff6e6}.mbtn.orange{background:var(--orange)}
+.warn{color:var(--red);font-size:13px}
+.res{width:100%;border-collapse:collapse;margin:8px 0}
+.res td{padding:3px 0;border-bottom:2px dashed var(--gray)}.res td:last-child{text-align:right}
+.rank{font-size:20px;text-align:center}
+.help ul{padding-left:18px;margin:6px 0}.help li{margin:4px 0;font-size:14px}
+.log p{margin:4px 0;font-size:14px;border-bottom:1px dashed var(--gray);padding-bottom:4px}
+.titlebox{text-align:center}
+.titlebox .logo{display:inline-flex;margin:4px 0 10px;font-size:18px}
+.titlebox .tdar{width:112px;height:112px;image-rendering:pixelated;image-rendering:crisp-edges}
+.toast{position:fixed;left:50%;top:calc(30% + env(safe-area-inset-top,0px));transform:translateX(-50%);background:#2a2320;color:#fff6e6;border:3px solid #f5c742;padding:8px 14px;font-size:14px;z-index:20;display:none;max-width:90vw;white-space:nowrap}
+.toast.show{display:block}
+@media (prefers-reduced-motion:reduce){.newsbar.flash .nt{animation:none}.btn:active:not(:disabled),.spd:active,.cbtn.on{transform:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="logo"><div><div class="lt">ポップだるま堂</div><span class="ls">繁盛記</span></div><canvas class="dar" width="14" height="14" data-spr="red"></canvas></div>
+    <div class="box datebox"><canvas class="ico" data-ico="cal" width="9" height="9"></canvas><div><b id="date"></b><small id="left"></small></div></div>
+    <div class="box cashbox"><div class="cl"><canvas class="ico" data-ico="coin" width="9" height="9"></canvas>所持金</div><b id="cash"></b></div>
+  </header>
+  <div class="box subbar">
+    <span><canvas class="ico" data-ico="bag" width="9" height="9"></canvas>次の支払いまで <em id="due"></em></span>
+    <i class="sep"></i>
+    <span><canvas class="ico" data-ico="coin" width="9" height="9"></canvas>予定収入 <b id="recv"></b></span>
+  </div>
+  <div class="stage" id="stage"><canvas id="scene"></canvas><div class="ptag" id="ptag">⏸ 一時停止中</div></div>
+  <button class="box newsbar" id="newsbar" aria-label="ニュースの履歴を見る"><canvas class="ico" data-ico="tv" width="9" height="9"></canvas><span class="tag">ニュース</span><span class="nt" id="banner" aria-live="polite"></span><span class="mood" id="mood"></span></button>
+  <section class="box panel">
+    <h3><canvas class="dar ico" width="14" height="14" data-spr="red"></canvas>お店の状況<small>小さなだるまに 大きな福を</small></h3>
+    <div class="pbody">
+      <div class="pl">
+        <div class="sr"><canvas class="ico" data-ico="gear" width="9" height="9"></canvas>生産スピード<span class="sv"><canvas id="prodPips" width="54" height="8"></canvas><em id="sProdTxt"></em></span></div>
+        <div class="sr"><canvas class="ico" data-ico="chart" width="9" height="9"></canvas>本日の販売数<b id="sSold"></b></div>
+        <div class="sr"><canvas class="ico" data-ico="sad" width="9" height="9"></canvas>売り逃し数<b class="red" id="sMiss"></b></div>
+        <div class="sr"><canvas class="ico" data-ico="box" width="9" height="9"></canvas>倉庫の空き<b id="sWh"></b></div>
+        <div class="sr"><canvas class="ico" data-ico="rack" width="9" height="9"></canvas>乾燥棚の空き<b id="sRack"></b></div>
+      </div>
+      <div class="pr">
+        <div><div class="sh"><canvas class="ico" data-ico="bag" width="9" height="9"></canvas>素材の相場<b id="sM"></b></div>
+        <div class="mk"><span id="mk0">安定</span><span id="mk1">やや高騰</span><span id="mk2">高騰</span></div></div>
+        <div><div class="sh"><canvas class="ico" data-ico="box" width="9" height="9"></canvas>だるまの在庫<b id="sStockTot"></b></div>
+        <div class="stock" id="stock"></div></div>
+      </div>
+    </div>
+  </section>
+  <section class="box panel">
+    <h3><canvas class="ico" data-ico="brush" width="9" height="9"></canvas>作るだるまの色をえらぶ<small>職人全員がこの色を作ります</small></h3>
+    <div class="colors" id="colors"></div>
+  </section>
+  <div class="ctrl">
+    <button class="btn buy" id="bBuy"><canvas class="ico" data-ico="sack" width="9" height="9"></canvas><span class="bt" id="bBuyT"></span></button>
+    <button class="btn inv" id="bInvest"><canvas class="ico" data-ico="up" width="9" height="9"></canvas>投資</button>
+    <div class="spdbox"><div class="t">作業スピード</div><div class="spdrow">
+      <button class="spd" data-s="0" aria-label="一時停止">❚❚</button><button class="spd" data-s="1" aria-label="通常速度">▶</button><button class="spd" data-s="2" aria-label="2倍速">▶▶</button>
+    </div></div>
+  </div>
+  <div class="foot"><button class="link" id="bHelp">あそびかた</button><button class="link" id="bTitle">タイトルへ</button></div>
+</div>
+
+<div class="overlay" id="modal"><div class="dialog" id="dlg"></div></div>
+<div class="overlay show" id="title">
+  <div class="dialog titlebox">
+    <canvas class="tdar" width="14" height="14" data-spr="red"></canvas><br>
+    <div class="logo"><div><div class="lt">ポップだるま堂</div><span class="ls">繁盛記</span></div></div>
+    <p class="sub">昭和レトロな町のだるま工房。年末ラッシュと特需の波を読んで、1年で工房を大きくしよう。</p>
+    <button class="mbtn red big" id="tNew">はじめから</button>
+    <button class="mbtn big" id="tCont">つづきから</button>
+    <button class="link" id="tHelp" style="margin-top:10px">あそびかた</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const INK='#2a2320';
+const COLORS={
+  red:{name:'あか',b:'#d8382a',d:'#8f1f15',h:'#f57a62',g:'#f5c742'},
+  green:{name:'みどり',b:'#3aae78',d:'#1f6e4a',h:'#8fdcb4',g:'#f5c742'},
+  sky:{name:'あお',b:'#3a78d8',d:'#1f4a92',h:'#9cc2f2',g:'#f5c742'},
+  yellow:{name:'きいろ',b:'#f2c230',d:'#b3841a',h:'#fbe38a',g:'#e2412f'}
+};
+const GRAY={b:'#bdb2a4',d:'#8c8378',h:'#d8d0c4',g:'#a8a097'};
+const CK=['red','green','sky','yellow'];
+const MONTHS=['4月','5月','6月','7月','8月','9月','10月','11月','12月','1月','2月','3月'];
+const TOTAL=120,DAY_SEC=15,DRY=3,BUY_N=10;
+const MM=[1.0,0.8,0.7,0.8,0.9,0.8,1.0,1.3,4.0,4.5,1.8,1.2];
+const BASE=1500,MAT=350,RENT=3000,SELF_RATE=2;
+const STAFF={
+  tatsu:{name:'タツ',desc:'作業が速いベテラン。生産+2.5個/日',fee:5000,wage:4000,rate:2.5},
+  hana:{name:'ハナ',desc:'堅実な職人。生産+1.5個/日',fee:5000,wage:4000,rate:1.5}
+};
+const RACK_UP=[8000,12000,16000],WH_UP=[5000,8000,12000];
+const KEY='popdaruma_rt_v1';
+const FLAVOR=['常連のおばあちゃんが赤だるまを褒めてくれた','隣の駄菓子屋からラムネの差し入れ','ラジオから昭和歌謡が流れている','今日もいい天気。筆がよくのる','近所の子どもがだるまを数えに来た'];
+
+const BIG=["....KKKKKK....","..KKBBBBBBKK..",".KBHHBBBBBBBK.",".KBWWWWWWWWBK.","KBWKKWWWWKKWBK","KBWWKWWWWKWWBK","KBWWWWKKWWWWBK","KBBWKKWWKKWBBK","KBBBWWWWWWBBBK","KBBBBGGGGBBBBK","KBBBBGDDGBBBBK",".KBBBBGGBBBBK.","..KKDDDDDDKK..","....KKKKKK...."];
+const MINI=["..KKKK..",".KBBBBK.","KBWWWWBK","KBKWWKBK","KBBWWBBK","KBBGGBBK",".KDDDDK.","..KKKK.."];
+const PERSON=["...KKKK...","..KHHHHK..",".KRRRRRRK.",".KHSSSSHK.",".KSKSSKSK.",".KSSSSSSK.","..KSSSSK..",".KAAAAAAK.","KAAPPPPAAK","KSAPPPPASK",".KAPPPPAK.",".KAAAAAAK.",".KAK..KAK.",".KKK..KKK."];
+const BACK=["...KKKK...","..KHHHHK..",".KHHHHHHK.",".KHHHHHHK.",".KHHHHHHK.",".KSHHHHSK.","..KSSSSK..",".KAAAAAAK.","KAAAAAAAAK","KSAAAAAASK",".KAAAAAAK.",".KAAAAAAK.",".KPK..KPK.",".KKK..KKK."];
+const ICONS={
+ cal:["KKKKKKKKK","KRRRRRRRK","KKKKKKKKK","KWWWWWWWK","KWKWKWKWK","KWWWWWWWK","KWKWKWKWK","KWWWWWWWK","KKKKKKKKK"],
+ coin:["..KKKKK..",".KYYYYYK.","KYYOOOYYK","KYYYOYYYK","KYYYOYYYK","KYYYOYYYK","KYYOOOYYK",".KYYYYYK.","..KKKKK.."],
+ bag:["...KKK...","..KLLLK..","...KBK...","..KLLLK..",".KLLLLLK.","KLLLYLLLK","KLLYLYLLK","KLLLLLLLK",".KKKKKKK."],
+ sack:["..K...K..","...KKK...","...KBK...","..KLLLK..",".KLLLLLK.","KLLKKKLLK","KLLLLKLLK","KLLKKKLLK",".KKKKKKK."],
+ box:["KKKKKKKKK","KLLLBLLLK","KLLLBLLLK","KKKKKKKKK","KLLLLLLLK","KLLBBBLLK","KLLLLLLLK","KLLLLLLLK","KKKKKKKKK"],
+ rack:["B.......B","BBBBBBBBB","B.......B","B.......B","BBBBBBBBB","B.......B","B.......B","BBBBBBBBB","B.......B"],
+ gear:["...KKK...",".K.KDK.K.","..KDDDK..","KKDDKDDKK","KDDK.KDDK","KKDDKDDKK","..KDDDK..",".K.KDK.K.","...KKK..."],
+ chart:[".......KK",".......KK","....KK.KK","....KK.KK",".KK.KK.KK",".KK.KK.KK",".KK.KK.KK",".KK.KK.KK","KKKKKKKKK"],
+ up:[".....RRR.","......RR.",".....R.R.","....KR.KK","KK.KR..KK","KKKR...KK","KKK.KK.KK","KKK.KK.KK","KKKKKKKKK"],
+ sad:["..KKKKK..",".KSSSSSK.","KSSSSSSSK","KSKSSSKSK","KSSSSSSSK","KSSKKKSSK","KSKSSSKSK",".KSSSSSK.","..KKKKK.."],
+ tv:[".K.....K.","..K...K..","KKKKKKKKK","KSSSSSKOK","KSDSDSKRK","KSSSSSKOK","KSDDDSKRK","KKKKKKKKK",".K.....K."],
+ brush:[".......KK","......KRK",".....KRK.","....KRK..","...KBK...","..KBK....",".KKK.....","KKK......","KK......."]
+};
+const IPAL={K:INK,R:'#e2412f',O:'#f0782a',Y:'#f5c742',W:'#fff6e6',L:'#d9a860',B:'#8a5a2b',S:'#9cc7ef',D:'#6b6358'};
+
+const rint=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const yen=n=>'¥'+Math.round(n).toLocaleString('ja-JP');
+const num=n=>Math.round(n).toLocaleString('ja-JP');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const monthOf=d=>Math.min(11,Math.floor(d/10));
+const dateStr=d=>`${MONTHS[monthOf(d)]}${d%10+1}日`;
+
+function spr(map,pal,x,y,s,g){for(let j=0;j<map.length;j++){const row=map[j];for(let i=0;i<row.length;i++){const ch=row[i];if(ch==='.')continue;const c=pal[ch];if(!c)continue;g.fillStyle=c;g.fillRect(x+i*s,y+j*s,s,s);}}}
+function darPal(k){const c=k==='gray'?GRAY:COLORS[k];return{K:INK,B:c.b,D:c.d,H:c.h,W:'#fff6e6',G:c.g};}
+function paintStatic(root){
+  root.querySelectorAll('canvas[data-spr]').forEach(c=>{const g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);spr(BIG,darPal(c.dataset.spr),0,0,1,g);});
+  root.querySelectorAll('canvas[data-ico]').forEach(c=>{const g=c.getContext('2d');g.clearRect(0,0,9,9);spr(ICONS[c.dataset.ico],IPAL,0,0,1,g);});
+}
+
+/* ---------- state & sim ---------- */
+let S=null;
+const rackCap=()=>6+4*S.rackLv,whCap=()=>20+15*S.whLv;
+const finN=()=>CK.reduce((a,k)=>a+S.fin[k],0);
+const whUsed=()=>S.mat+finN(),whFree=()=>whCap()-whUsed();
+const rackFree=()=>rackCap()-S.rack.length;
+const staffRate=()=>S.staff.reduce((a,id)=>a+STAFF[id].rate,0);
+const prodRate=()=>SELF_RATE+(S.lowMorale?staffRate()/2:staffRate());
+const monthly=()=>RENT+S.staff.reduce((a,id)=>a+STAFF[id].wage,0);
+const recvTotal=()=>S.recv.reduce((a,r)=>a+r.amt,0);
+const matPrice=()=>Math.round(MAT*S.m/10)*10;
+const phase=(e,d)=>(d>=e.start&&d<e.start+e.len)?'act':((d>=e.start-e.ann&&d<e.start)?'ann':null);
+
+function genEvents(){
+  const ev=[],pop=['green','sky','yellow','green','sky','red'];
+  ev.push({type:'inbound',start:rint(6,18),len:6,ann:4});
+  ev.push({type:'inbound',start:rint(62,70),len:6,ann:4});
+  for(const [a,b] of [[22,38],[42,56],[102,112]])ev.push({type:'tv',start:rint(a,b),len:4,ann:3,color:pick(pop)});
+  return ev;
+}
+function newGame(){
+  S={t:0,day:0,cash:20000,mat:10,fin:{red:2,green:0,sky:0,yellow:0},rack:[],color:'red',prog:0,
+    rackLv:0,whLv:0,staff:[],recv:[],m:1,sup:40,noise:1,events:genEvents(),strikes:0,lowMorale:false,
+    stats:{sold:0,missed:0,rev:0},today:{sold:0,missed:0,rev:0},news:[],banner:'',over:false};
+  updateMarket(true);
+  S.banner='4月1日、だるま堂 開店！素材を切らさないように';
+  S.news=[{t:'職人が「作る色」のだるまを自動で作ります'},{t:'12月〜1月の年末ラッシュが一番の書き入れ時です'}];
+}
+function save(){try{if(S)localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function load(){try{const v=localStorage.getItem(KEY);return v?JSON.parse(v):null;}catch(e){return null;}}
+
+function marketTarget(d){
+  let t=1,cap=40;
+  if(d>=74&&d<80){t=Math.max(t,1.4);cap=Math.min(cap,20);}
+  if(d>=80&&d<100){t=Math.max(t,1.9);cap=Math.min(cap,12);}
+  for(const e of S.events){const p=phase(e,d);
+    if(p==='ann'){t=Math.max(t,1.3);cap=Math.min(cap,24);}
+    if(p==='act'){if(e.type==='tv'){t=Math.max(t,2.0);cap=Math.min(cap,10);}else{t=Math.max(t,1.6);cap=Math.min(cap,12);}}}
+  return{t,cap};
+}
+function updateMarket(first){
+  const {t,cap}=marketTarget(S.day);
+  if(first)S.m=t;else if(t>S.m)S.m=Math.min(t,S.m+0.2);else S.m=Math.max(t,S.m-0.12);
+  S.m=Math.round(S.m*100)/100;S.sup=cap;
+}
+function lambda(d){
+  const mo=monthOf(d);
+  const share=(mo>=8&&mo<=10)?{red:.7,green:.1,sky:.1,yellow:.1}:{red:.45,green:.2,sky:.15,yellow:.2};
+  const base=2.4*MM[mo]*S.noise,rate={},mult={};
+  for(const k of CK){rate[k]=base*share[k];mult[k]=(mo===8||mo===9)?1.4:1;}
+  for(const e of S.events){if(phase(e,d)!=='act')continue;
+    if(e.type==='tv'){rate[e.color]+=5.5;mult[e.color]*=1.5;}
+    else{rate.sky+=2;rate.yellow+=2;rate.green+=1;mult.sky*=1.4;mult.yellow*=1.4;mult.green*=1.4;}}
+  return{rate,mult};
+}
+function dayNews(d){
+  const out=[];
+  for(const e of S.events){const c=e.color?COLORS[e.color].name:'';
+    if(d===e.start-e.ann)out.push(e.type==='tv'?`${e.ann}日後、テレビで${c}だるま特集！`:`${e.ann}日後から観光客が増えそう。あお・きいろ・みどりが人気の予感`);
+    if(d===e.start)out.push(e.type==='tv'?`放送開始！${c}だるまに注文殺到（${e.len}日間・高値）`:`インバウンドラッシュ！ポップな色が高く売れる（${e.len}日間）`);
+    if(d===e.start+e.len)out.push(e.type==='tv'?'テレビのブームがひと段落した':'観光ラッシュが落ち着いた');}
+  if(d===70)out.push('11月。年末ラッシュまであと10日。相場がもうすぐ上がる');
+  if(d===80)out.push('年末ラッシュ開幕！あかだるまが飛ぶように売れる');
+  if(d===90)out.push('新年のだるま市！まだまだ売れる');
+  if(d===100)out.push('受験シーズン。合格祈願の注文が続く');
+  if(d===110)out.push('最終月。3月10日の営業終了で決算です');
+  return out;
+}
+function mood(){
+  const d=Math.min(S.day,TOTAL-1);
+  if(S.events.some(e=>phase(e,d)==='act'))return'大にぎわい！';
+  if(d>=80&&d<100)return'年末ラッシュ！';
+  if(S.events.some(e=>phase(e,d)==='ann')||(d>=74&&d<80))return'町がざわついています';
+  return'いつもの町';
+}
+
+let speed=0;const visitors=[];
+function arrive(k,mult){
+  let ok=false;
+  if(S.fin[k]>0){S.fin[k]--;const p=Math.round(BASE*mult/10)*10;S.recv.push({amt:p,due:S.t+DRY});S.today.sold++;S.today.rev+=p;S.stats.sold++;S.stats.rev+=p;ok=true;}
+  else{S.today.missed++;S.stats.missed++;}
+  if(visitors.length<6)visitors.push({x:262,tx:rint(124,218),k,ok,st:'in',wait:0,pal:CUST[rint(0,CUST.length-1)]});
+}
+function step(dd){
+  const prevDay=S.day;S.t+=dd;
+  if(S.color!=='stop'){S.prog+=prodRate()*dd;
+    while(S.prog>=1){if(S.mat<1||rackFree()<1){S.prog=1;break;}S.prog-=1;S.mat--;S.rack.push({c:S.color,ready:S.t+DRY});}}
+  else S.prog=0;
+  for(let i=0;i<S.rack.length;i++){const r=S.rack[i];if(r.ready<=S.t&&whFree()>0){S.fin[r.c]++;S.rack.splice(i,1);i--;}}
+  const {rate,mult}=lambda(S.day);
+  for(const k of CK)if(Math.random()<rate[k]*dd)arrive(k,mult[k]);
+  let got=0;S.recv=S.recv.filter(r=>{if(r.due<=S.t){got+=r.amt;return false;}return true;});S.cash+=got;
+  const nd=Math.floor(S.t);if(nd>prevDay)newDay(nd);
+}
+function newDay(nd){
+  const td=S.today;S.day=nd;
+  const lines=[`${dateStr(nd-1)}：販売${td.sold}個 ${yen(td.rev)}${td.missed?`／売り逃し${td.missed}個`:''}`];
+  S.today={sold:0,missed:0,rev:0};
+  let short=null,hot=[];
+  if(nd%10===0){const cost=monthly();
+    if(S.cash>=cost){S.cash-=cost;S.lowMorale=false;hot.push(`月末の支払い ${yen(cost)} を済ませた`);}
+    else{const paid=S.cash;S.cash=0;S.strikes++;S.lowMorale=S.staff.length>0;hot.push(`資金ショート（${S.strikes}/3）`);short={cost,paid};}}
+  if(S.strikes>=3||nd>=TOTAL){S.news=[...hot,...lines].map(t=>({t})).concat(S.news).slice(0,30);S.over=true;setSpeed(0);save();renderUI();showEnd(S.strikes>=3);return;}
+  const prev=S.m;S.noise=0.7+Math.random()*0.6;updateMarket(false);
+  hot=hot.concat(dayNews(nd));
+  if(!hot.length&&S.m>prev+0.01)hot.push('素材の相場がじわじわ上がっている');
+  if(!hot.length&&S.m<prev-0.01)hot.push('素材の相場が落ち着いてきた');
+  if(!hot.length&&Math.random()<0.25)hot.push(pick(FLAVOR));
+  S.news=[...hot,...lines].map(t=>({t})).concat(S.news).slice(0,30);
+  if(hot.length){S.banner=hot[hot.length-1];flashNews();}
+  save();
+  if(short){setSpeed(0);
+    modal(`<h2>資金ショート</h2><p>月末の支払い ${yen(short.cost)} のうち、${yen(short.paid)} しか払えませんでした。</p>${S.staff.length?'<p>給料が遅れたため、来月は職人の作業スピードが半分になります。</p>':''}<p class="warn">資金ショート ${S.strikes}/3回。3回で閉店です。</p><button class="mbtn big" id="ok">再開する</button>`,{noClose:true});
+    $('#ok').onclick=()=>{closeModal();setSpeed(1);};}
+}
+function showEnd(bankrupt){
+  const stock=finN()*600+S.mat*MAT,score=S.cash+recvTotal()+stock;
+  const rank=bankrupt?'閉店':score>=400000?'だるま大名':score>=200000?'名工':score>=80000?'一人前':'見習い';
+  modal(`<h2>${bankrupt?'閉店…':'決算！'}</h2><p class="sub">${bankrupt?'資金ショートが3回続き、工房を閉じることになりました。':'1年間おつかれさまでした。'}</p>
+  <table class="res"><tr><td>所持金</td><td>${yen(S.cash)}</td></tr><tr><td>予定収入</td><td>${yen(recvTotal())}</td></tr><tr><td>在庫（完成品は1個¥600で評価）</td><td>${yen(stock)}</td></tr><tr><td>総資産</td><td>${yen(score)}</td></tr><tr><td>販売数</td><td>${S.stats.sold}個</td></tr><tr><td>売り逃し</td><td>${S.stats.missed}個</td></tr></table>
+  <p class="rank">称号：${rank}</p><button class="mbtn red big" id="again">もう一度あそぶ</button>`,{noClose:true});
+  $('#again').onclick=()=>{newGame();save();closeModal();visitors.length=0;renderUI();setSpeed(1);};
+}
+
+/* ---------- actions ---------- */
+function buyQty(){return Math.max(0,Math.min(BUY_N,S.sup,whFree(),Math.floor(S.cash/matPrice())));}
+function buy(){const n=buyQty();if(n<1)return;const cost=n*matPrice();S.cash-=cost;S.mat+=n;S.sup-=n;save();renderUI();toast(`素材を${n}個 仕入れた（${yen(cost)}）`);}
+function setColor(c){if(!S||S.over)return;S.color=c;save();renderUI();}
+function setSpeed(s){speed=s;document.querySelectorAll('.spd').forEach(b=>b.classList.toggle('on',+b.dataset.s===s));renderUI();}
+function openInvest(){
+  const draw=()=>{
+    const item=(id,name,sub,cost,done)=>`<div class="row"><div class="grow">${name}<br><small>${sub}</small></div>${done?`<span class="sub">${done}</span>`:`<button class="mbtn orange" data-u="${id}" ${S.cash>=cost?'':'disabled'}>${yen(cost)}</button>`}</div>`;
+    let h=item('rack','乾燥棚を増やす',`+4枠（いま${rackCap()}枠）`,RACK_UP[S.rackLv],S.rackLv>=3?'最大':'');
+    h+=item('wh','倉庫を広げる',`+15（いま${whCap()}）`,WH_UP[S.whLv],S.whLv>=3?'最大':'');
+    for(const id of ['tatsu','hana']){const s=STAFF[id];h+=item(id,`職人 ${s.name} を雇う`,`${s.desc}。月給${yen(s.wage)}`,s.fee,S.staff.includes(id)?'雇用中':'');}
+    modal(`<h2>投資</h2><p class="sub">金額をタップすると購入します。所持金 ${yen(S.cash)}／毎月の支払い ${yen(monthly())}</p>${h}`);
+    $('#dlg').querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>{const u=b.dataset.u;
+      if(u==='rack'){S.cash-=RACK_UP[S.rackLv];S.rackLv++;toast('乾燥棚を増やした');}
+      else if(u==='wh'){S.cash-=WH_UP[S.whLv];S.whLv++;toast('倉庫を広げた');}
+      else{S.cash-=STAFF[u].fee;S.staff.push(u);toast(`${STAFF[u].name}が工房に加わった`);}
+      save();renderUI();draw();});
+  };
+  draw();
+}
+function openHelp(after){
+  modal(`<h2>あそびかた</h2><div class="help"><ul>
+  <li>時間は自動で流れます（1日＝約15秒、1ヶ月＝10日）。❚❚でいつでも止められます。</li>
+  <li><b>作る色</b>：職人全員が選んだ色のだるまを作ります。1個につき素材1つ。乾燥棚で3日乾くと完成品になります。</li>
+  <li><b>やめる</b>にすると素材を素材のまま温存できます。どの色にも使えるので、流行が読めないときの備えになります。</li>
+  <li><b>販売</b>：お客さんが来て自動で売れます。在庫がない色は売り逃し。お金が入るのは3日後です。</li>
+  <li><b>素材を買う</b>：1タップで10個。特需の予告が出ると相場が上がり、特需中は入荷が絞られます。</li>
+  <li><b>月末</b>に家賃と給料を払います。払えないと資金ショート、3回で閉店。</li>
+  <li>12月〜1月の年末ラッシュが最大の山場。3月10日で決算です。</li></ul></div>
+  <button class="mbtn big" id="ok">とじる</button>`);
+  $('#ok').onclick=()=>{closeModal();if(after)after();};
+}
+function openLog(){
+  modal(`<h2>ニュースの履歴</h2><div class="log">${S.news.slice(0,20).map(n=>`<p>${esc(n.t)}</p>`).join('')||'<p>まだありません</p>'}</div>`);
+}
+
+/* ---------- UI ---------- */
+const pipCtx=$('#prodPips').getContext('2d');
+function prodReason(){if(S.color==='stop')return'停止中';if(S.mat<1)return'素材切れ！';if(rackFree()<1)return'棚が満杯';return'';}
+function renderUI(){
+  if(!S)return;
+  const d=Math.min(S.day,TOTAL-1);
+  $('#date').textContent=dateStr(d);
+  $('#left').textContent=`のこり${Math.max(0,TOTAL-S.day)}日`;
+  $('#cash').textContent=num(S.cash)+'円';
+  $('#due').textContent=`あと${10-(S.day%10)}日（${yen(monthly())}）`;
+  $('#recv').textContent='+'+num(recvTotal())+'円';
+  $('#ptag').classList.toggle('show',speed===0&&!S.over);
+  $('#banner').textContent=S.banner||'';
+  $('#mood').textContent=mood();
+  // prod pips
+  const reason=prodReason(),r=prodRate(),filled=reason?0:Math.min(6,Math.round(r));
+  pipCtx.clearRect(0,0,54,8);
+  for(let i=0;i<6;i++)spr(MINI,darPal(i<filled?(S.color==='stop'?'red':S.color):'gray'),i*9+1,0,1,pipCtx);
+  $('#sProdTxt').textContent=reason;$('#prodPips').style.display=reason?'none':'';
+  $('#sSold').textContent=S.today.sold+'個';
+  $('#sMiss').textContent=S.today.missed+'個';
+  $("#sWh").textContent=`${Math.max(0,whFree())} / ${whCap()}`;
+  const stuck=S.rack.filter(x=>x.ready<=S.t).length;
+  $('#sRack').innerHTML=`${rackFree()} / ${rackCap()}`+(stuck?'<small class="red" style="font-size:.7rem"> 倉庫満杯</small>':'');
+  const lv=S.m<1.1?0:S.m<1.5?1:2,mt=marketTarget(S.day).t;
+  for(let i=0;i<3;i++)$('#mk'+i).classList.toggle('on',i===lv);
+  $('#sM').textContent=`×${S.m.toFixed(2)}${mt>S.m+0.01?'↗':mt<S.m-0.01?'↘':''}`;
+  for(const k of CK)$('#st-'+k).textContent=S.fin[k];
+  $('#sStockTot').textContent=`素材${S.mat}`;
+  document.querySelectorAll('.cbtn').forEach(b=>b.classList.toggle('on',b.dataset.c===S.color));
+  const n=buyQty(),bb=$('#bBuy');bb.disabled=S.over||n<1;
+  $('#bBuyT').innerHTML=n>0?`素材を買う ×${n}<small>${yen(n*matPrice())}</small>`:`素材を買う<small>${S.sup<1?'本日は入荷終了':whFree()<1?'倉庫が満杯':'お金が足りない'}</small>`;
+  $('#bInvest').disabled=S.over;
+}
+function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('show');clearTimeout(toast.h);toast.h=setTimeout(()=>el.classList.remove('show'),1400);}
+function flashNews(){const b=$('#newsbar');b.classList.remove('flash');void b.offsetWidth;b.classList.add('flash');}
+function modal(html,opt={}){
+  const d=$('#dlg');d.dataset.lock=opt.noClose?'1':'';
+  d.innerHTML=(opt.noClose?'':'<button class="x" id="mx" aria-label="閉じる">×</button>')+html;
+  $('#modal').classList.add('show');paintStatic(d);
+  if(!opt.noClose)$('#mx').onclick=closeModal;
+}
+function closeModal(){$('#modal').classList.remove('show');}
+$('#modal').addEventListener('pointerdown',e=>{if(e.target.id==='modal'&&!$('#dlg').dataset.lock)closeModal();});
+
+/* ---------- scene (base 256x176, anchored bottom) ---------- */
+const cv=$('#scene'),ctx=cv.getContext('2d');
+const BW=256,BH=176,FLOOR=130;
+let W=BW,H=BH,SC=3,ox=0,oy=0;
+function resize(){
+  const r=$('#stage').getBoundingClientRect();if(!r.width||!r.height)return;
+  if(r.width/r.height>BW/BH){H=BH;W=Math.round(BH*r.width/r.height);}else{W=BW;H=Math.round(BW*r.height/r.width);}
+  ox=Math.floor((W-BW)/2);oy=H-BH;
+  const dpr=window.devicePixelRatio||1;SC=Math.max(2,Math.min(5,Math.round(r.width*dpr/W)));
+  cv.width=W*SC;cv.height=H*SC;
+}
+new ResizeObserver(resize).observe($('#stage'));
+function R(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(x,y,w,h);}
+function circ(cx,cy,r,c){ctx.fillStyle=c;for(let dy=-r;dy<=r;dy++){const w=Math.floor(Math.sqrt(r*r-dy*dy));ctx.fillRect(cx-w,cy+dy,w*2+1,1);}}
+function ell(cx,cy,rx,ry,c,top){ctx.fillStyle=c;for(let dy=-ry;dy<=(top?0:ry);dy++){const w=Math.floor(rx*Math.sqrt(Math.max(0,1-(dy*dy)/(ry*ry))));ctx.fillRect(cx-w,cy+dy,w*2+1,1);}}
+function T(s,x,y,size,c,align){ctx.font=`${size}px "DotGothic16",sans-serif`;ctx.fillStyle=c;ctx.textAlign=align||'center';ctx.textBaseline='middle';ctx.fillText(s,x,y);}
+const sp=(map,pal,x,y,s=1)=>spr(map,pal,x,y,s,ctx);
+const CUST=[['#2f3f8a','#2f63d6','#fff6e6'],['#5a3a22','#f5c742','#d8382a'],['#3a2a20','#3aae78','#fff6e6'],['#9a9a9a','#8a5a2b','#fff6e6'],['#2a1a14','#f7b7cf','#fff6e6']];
+const QC=['#f4a6a0','#f5c742','#8fd6b4','#9cc7ef','#f0782a','#fbe38a','#5cc4d8','#f7b7cf','#d8382a','#3aae78'];
+
+function drawBackground(){
+  // full canvas in canvas coords (before translate)
+  ctx.setTransform(SC,0,0,SC,0,0);
+  R(0,0,W,H,'#f3e2bf');
+  for(let x=2;x<W;x+=7)R(x,0,1,oy+FLOOR,'#ead5a8');
+  R(0,0,W,5,'#6b4424');R(0,5,W,1,INK);
+  if(oy>12){for(let x=ox+20;x<ox+BW;x+=54){R(x,6,3,oy-4,'#8a5a2b');}R(0,oy,W,3,'#8a5a2b');R(0,oy+3,W,1,'#6b4424');}
+  // wainscot
+  R(0,oy+118,W,12,'#c99558');R(0,oy+118,W,1,INK);
+  for(let x=4;x<W;x+=12)R(x,oy+119,1,11,'#a8743e');
+  // floor
+  R(0,oy+FLOOR-1,W,1,INK);
+  for(let y=oy+FLOOR;y<H;y+=8)for(let x=0;x<W;x+=8)R(x,y,8,8,(((x+y-oy)>>3)&1)?'#5fc4a0':'#8fd6b4');
+  // side posts
+  R(ox-4,oy,4,FLOOR-1,'#8a5a2b');R(ox+BW,oy,4,FLOOR-1,'#8a5a2b');
+}
+function drawNoren(){
+  R(3,6,128,2,'#6b4424');R(3,6,2,4,INK);R(129,6,2,4,INK);
+  R(6,8,122,16,'#d8382a');R(6,8,122,1,'#a82418');
+  for(let x=26;x<128;x+=20)R(x,17,1,7,'#f3e2bf');
+  R(6,24,122,1,'#a82418');
+  T('だるまは、しあわせをつくる',66,14,8,'#fff6e6');
+}
+function drawLamps(fr){
+  for(const x of [150,176,202]){R(x,-oy,1,9+oy,INK);
+    for(let r=0;r<5;r++)R(x-2-r,9+r,5+r*2,1,r===0?'#a82418':'#d8382a');
+    R(x-7,14,15,1,INK);R(x-1,15,3,2,'#fbe38a');}
+}
+function drawRack(fr){
+  const x0=3,y0=26;
+  R(x0,y0-1,54,2,'#b7773a');R(x0,y0-2,54,1,INK);
+  R(x0,y0,3,92,'#7a4a22');R(x0+51,y0,3,92,'#7a4a22');
+  for(let r=0;r<6;r++){const py=y0+14+r*15;R(x0,py,54,2,'#b7773a');R(x0,py+2,54,1,'#7a4a22');}
+  const cap=rackCap();
+  for(let s=0;s<18;s++){
+    const r=Math.floor(s/3),c=s%3,x=x0+5+c*16,y=y0+r*15;
+    if(s>=cap){R(x+3,y+6,8,6,'#e2cfa3');R(x+3,y+6,8,1,'#cdb585');continue;}
+    const it=S.rack[s];if(!it)continue;
+    sp(BIG,darPal(it.c),x,y);
+    if(it.ready>S.t){const ph=(fr+s)%3;circ(x+14,y+5-ph,2,'#ffffff');circ(x+12,y+3-ph,1,'#ffffff');}
+    else if((fr+s)%2){R(x+6,y-3,2,5,'#e2412f');}
+  }
+  R(4,119,52,10,INK);R(5,120,50,8,'#fbf1dc');
+  T(`乾燥中 ${S.rack.length}/${cap}`,30,124.5,7,INK);
+}
+function drawScroll(){
+  R(62,24,20,2,'#6b4424');R(71,20,2,4,INK);
+  R(63,26,18,56,'#2f63d6');R(64,27,16,54,'#fff6e6');
+  ['七','転','八','起'].forEach((c,i)=>T(c,72,33+i*10,9,INK));
+  sp(MINI,darPal('red'),68,72);
+  R(62,82,20,2,'#6b4424');
+}
+function drawQuilt(){
+  const x0=88,y0=28,n=6,s=7;
+  R(x0-2,y0-3,n*s+4,2,'#6b4424');
+  for(let j=0;j<n;j++)for(let i=0;i<n;i++){const c=QC[(i*3+j*7+i*j)%QC.length];R(x0+i*s,y0+j*s,s,s,c);if((i+j)%3===0){R(x0+i*s+2,y0+j*s+3,3,1,'#fff6e6');R(x0+i*s+3,y0+j*s+2,1,3,'#fff6e6');}}
+  R(x0,y0,n*s,1,INK);R(x0,y0+n*s,n*s+1,1,INK);R(x0,y0,1,n*s,INK);R(x0+n*s,y0,1,n*s,INK);
+}
+function drawMirror(){
+  const cx=142,cy=48;
+  for(let a=0;a<Math.PI*2;a+=Math.PI/8)circ(Math.round(cx+Math.cos(a)*7),Math.round(cy+Math.sin(a)*19),3,'#f0782a');
+  ell(cx,cy,7,19,'#f0782a');ell(cx,cy,5,16,'#9cc7ef');
+  R(cx-3,cy-10,1,8,'#ffffff');R(cx-2,cy-12,1,2,'#ffffff');
+}
+function drawTV(fr){
+  const d=Math.min(S.day,TOTAL-1);
+  R(160,56,52,3,'#8a5a2b');R(160,59,52,1,INK);R(164,60,2,5,'#6b4424');R(206,60,2,5,'#6b4424');
+  R(172,22,1,8,INK);R(171,21,1,1,INK);R(192,22,1,8,INK);R(193,21,1,1,INK);
+  R(168,29,30,27,INK);R(169,30,28,25,'#d8382a');
+  R(171,32,19,20,INK);
+  const act=S.events.find(e=>e.type==='tv'&&phase(e,d)==='act');
+  const ann=S.events.find(e=>e.type==='tv'&&phase(e,d)==='ann');
+  if(act){R(172,33,17,18,fr%2?COLORS[act.color].h:'#fff6e6');sp(BIG,darPal(act.color),174,35);}
+  else if(ann){R(172,33,17,18,'#fbe38a');T('予告',180.5,42,7,INK);}
+  else{R(172,33,17,18,'#8fb0c8');sp(BIG,darPal('gray'),174,35);}
+  R(192,34,3,3,'#f5c742');R(192,40,3,3,'#f5c742');R(192,46,3,2,INK);
+  // plant hanging
+  R(206,52,6,5,'#b7773a');
+  for(let i=0;i<7;i++){R(210+(i%2)*2,56+i*3,3,2,'#3aae78');R(208+((i+1)%2)*3,57+i*3,2,2,'#2f8a58');}
+}
+function drawSign(){
+  R(238,6,15,52,INK);R(239,7,13,50,'#fbf1dc');
+  ['笑','う','門','に','福'].forEach((c,i)=>T(c,245.5,13+i*9.5,8,i===4?'#d8382a':INK));
+}
+function drawShelf(){
+  const cx=226,x0=198,x1=254,top=76;
+  ell(cx,top,28,12,INK,true);ell(cx,top,27,11,'#fbf7ef',true);
+  R(x0,top,x1-x0,54,INK);R(x0+1,top,x1-x0-2,53,'#fbf7ef');
+  T('だるま堂',cx,top-4,8,INK);
+  R(x0+3,top+2,x1-x0-6,50,'#e8dcc6');
+  const list=[];for(const k of CK)for(let i=0;i<S.fin[k];i++)list.push(k);
+  for(let r=0;r<3;r++){R(x0+3,top+17+r*16,x1-x0-6,2,'#fbf7ef');R(x0+3,top+19+r*16,x1-x0-6,1,'#cdbfa5');}
+  for(let i=0;i<Math.min(9,list.length);i++){const r=Math.floor(i/3),c=i%3;sp(BIG,darPal(list[i]),x0+5+c*16,top+3+r*16);}
+  if(list.length>9){R(x1-16,top+2,13,8,'#d8382a');T('+'+(list.length-9),x1-9.5,top+6,6,'#fff6e6');}
+}
+function drawWorkers(fr,working){
+  const P0={K:INK,H:'#2a1a14',R:'#fff6e6',S:'#f6c9a0',A:'#2f63d6',P:'#fff6e6'};
+  const team=[{x:74,pal:P0}];
+  if(S.staff.includes('tatsu'))team.push({x:106,pal:{...P0,H:'#8a8a8a',A:'#fff6e6',P:'#f0782a'}});
+  if(S.staff.includes('hana'))team.push({x:138,pal:{...P0,A:'#f0782a',P:'#fff6e6'}});
+  team.forEach((m,i)=>{
+    const b=working?((fr+i)%2):0;
+    sp(PERSON,m.pal,m.x,74+b,2);
+    const col=S.color==='stop'?null:S.color;
+    if(col)sp(BIG,darPal(col),m.x+13,90);
+    if(working){R(m.x+4+b*2,86-b,1,7,'#8a5a2b');R(m.x+4+b*2,85-b,1,1,col?COLORS[col].b:INK);}
+  });
+  // bench
+  R(62,102,132,6,'#c98a4a');R(62,102,132,1,INK);R(62,108,132,1,INK);
+  R(64,109,128,9,'#a8703a');R(64,117,128,1,INK);
+  for(let x=70;x<190;x+=24)R(x,110,1,7,'#8a5a2b');
+  // pots on bench
+  [['#e2412f',66],['#3aae78',104],['#2f63d6',170],['#f5c742',186]].forEach(([c,x])=>{R(x,97,6,5,INK);R(x+1,98,4,4,c);});
+  R(160,92,6,10,INK);R(161,93,4,9,'#6b4424');R(161,88,1,5,'#b7773a');R(163,87,1,6,'#b7773a');R(162,89,1,4,'#d8382a');
+}
+function drawMaterials(){
+  const boxes=Math.min(4,Math.ceil(S.mat/8));
+  const pos=[[0,152],[24,152],[48,152],[10,136]];
+  for(let i=0;i<boxes;i++){const [x,y]=pos[i];R(x,y,23,17,INK);R(x+1,y+1,21,15,'#c99558');R(x+1,y+6,21,1,'#a8743e');R(x+10,y+1,3,5,'#a8743e');T('だるま',x+11.5,y+11.5,6,'#5a3a1e');}
+  const cans=Math.min(4,Math.ceil(S.mat/4));
+  const cc=['#d8382a','#3aae78','#2f63d6','#f5c742'];
+  for(let i=0;i<cans;i++){const x=76+i*13,y=136;R(x,y,11,13,INK);R(x+1,y+1,9,11,cc[i]);R(x+1,y+1,9,2,'#fff6e6');R(x+1,y+3,9,1,INK);}
+  if(S.mat<1){R(80,140,38,11,'#d8382a');R(80,140,38,1,INK);T('素材切れ',99,145.5,7,'#fff6e6');}
+}
+function drawVisitors(fr){
+  const list=visitors.slice().sort((a,b)=>a.x-b.x);
+  for(const v of list){
+    const x=Math.round(v.x),walk=v.st!=='wait';
+    sp(BACK,{K:INK,H:v.pal[0],S:'#f6c9a0',A:v.pal[1],P:v.pal[2]},x,144+(walk?fr%2:0),2);
+  }
+  // rope
+  R(116,156,4,20,'#8a5a2b');
+  for(let x=120;x<W-ox;x+=6)R(x,160,6,2,((x/6)|0)%2?'#fff6e6':'#d8382a');
+  for(const v of list){
+    if(v.st==='in')continue;
+    const x=Math.round(v.x)+10,txt=v.ok?'買った！':'売り切れ…',w=v.ok?30:36;
+    const bx=Math.max(4,Math.min(W-ox*2-w-2,x-w/2));
+    R(bx,130,w,11,INK);R(bx+1,131,w-2,9,'#fff6e6');R(x-1,141,3,2,INK);R(x,141,1,1,'#fff6e6');
+    T(txt,bx+w/2,135.5,7,v.ok?INK:'#d8382a');
+  }
+}
+function drawBunting(cols){for(let i=-2;i<W/10;i++){const x=i*10+2-ox,c=cols[(i+20)%cols.length];for(let r=0;r<4;r++)R(x+r,6+r,7-2*r,1,c);}}
+function drawScene(t){
+  if(!S||!cv.width)return;
+  const fr=Math.floor(t/300),d=Math.min(S.day,TOTAL-1);
+  drawBackground();
+  ctx.setTransform(SC,0,0,SC,SC*ox,SC*oy);
+  drawNoren();drawLamps(fr);drawRack(fr);drawScroll();drawQuilt();drawMirror();drawTV(fr);drawSign();drawShelf();
+  const working=speed>0&&!prodReason();
+  drawWorkers(fr,working);drawMaterials();drawVisitors(fr);
+  if(d>=80&&d<100)drawBunting(['#d8382a','#fff6e6']);
+  else if(S.events.some(e=>e.type==='inbound'&&phase(e,d)==='act'))drawBunting(['#d8382a','#f5c742','#5fc4a0','#2f63d6','#f0782a']);
+}
+function moveVisitors(sec){
+  const v0=34*sec;
+  for(const v of visitors){
+    if(v.st==='in'){v.x-=v0;if(v.x<=v.tx){v.x=v.tx;v.st='wait';v.wait=0;}}
+    else if(v.st==='wait'){v.wait+=sec;if(v.wait>1)v.st='out';}
+    else v.x+=v0;
+  }
+  for(let i=visitors.length-1;i>=0;i--)if(visitors[i].x>W)visitors.splice(i,1);
+}
+
+/* ---------- loop ---------- */
+let last=0,uiAcc=0;
+function loop(now){
+  const sec=last?Math.min(0.1,(now-last)/1000):0;last=now;
+  if(S&&!S.over&&speed>0){
+    const dd=sec*speed/DAY_SEC,n=Math.ceil(dd/0.01);
+    for(let i=0;i<n&&!S.over&&speed>0;i++)step(dd/n);
+    moveVisitors(sec*speed);
+  }
+  uiAcc+=sec;if(uiAcc>0.25){uiAcc=0;renderUI();}
+  drawScene(now);
+  requestAnimationFrame(loop);
+}
+
+/* ---------- boot ---------- */
+$('#colors').innerHTML=CK.map(k=>`<button class="cbtn" data-c="${k}"><canvas class="dar" width="14" height="14" data-spr="${k}"></canvas>${COLORS[k].name}</button>`).join('')+`<button class="cbtn" data-c="stop"><span class="blank"></span>やめる</button>`;
+$('#stock').innerHTML=CK.map(k=>`<div><canvas class="dar" width="14" height="14" data-spr="${k}"></canvas><b id="st-${k}"></b></div>`).join('');
+paintStatic(document);
+document.querySelectorAll('.cbtn').forEach(b=>b.onclick=()=>setColor(b.dataset.c));
+document.querySelectorAll('.spd').forEach(b=>b.onclick=()=>{if(S&&!S.over)setSpeed(+b.dataset.s);});
+$('#bBuy').onclick=buy;$('#bInvest').onclick=openInvest;$('#bHelp').onclick=()=>openHelp();$('#newsbar').onclick=openLog;
+$('#bTitle').onclick=()=>{setSpeed(0);save();showTitle();};
+function showTitle(){const sv=load();$('#tCont').style.display=(sv&&!sv.over)?'block':'none';$('#title').classList.add('show');}
+$('#tNew').onclick=()=>{newGame();save();visitors.length=0;$('#title').classList.remove('show');renderUI();setSpeed(1);};
+$('#tCont').onclick=()=>{const sv=load();if(sv){S=sv;if(!S.fin||typeof S.fin.red!=='number')newGame();}visitors.length=0;$('#title').classList.remove('show');renderUI();setSpeed(1);};
+$('#tHelp').onclick=()=>{$('#title').classList.remove('show');openHelp(showTitle);};
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&S&&!S.over){setSpeed(0);save();}});
+const sv=load();
+if(sv&&!sv.over&&sv.fin&&typeof sv.fin.red==='number')S=sv;else newGame();
+resize();showTitle();setSpeed(0);renderUI();requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ポップだるま堂 繁盛記</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="logo"><div><div class="lt">ポップだるま堂</div><span class="ls">繁盛記</span></div><canvas class="dar" width="14" height="14" data-spr="red"></canvas></div>
+    <div class="box datebox"><canvas class="ico" data-ico="cal" width="9" height="9"></canvas><div><b id="date"></b><small id="left"></small></div></div>
+    <div class="box cashbox"><div class="cl"><canvas class="ico" data-ico="coin" width="9" height="9"></canvas>所持金</div><b id="cash"></b></div>
+  </header>
+  <div class="box subbar">
+    <span><canvas class="ico" data-ico="bag" width="9" height="9"></canvas>次の支払いまで <em id="due"></em></span>
+    <i class="sep"></i>
+    <span><canvas class="ico" data-ico="coin" width="9" height="9"></canvas>予定収入 <b id="recv"></b></span>
+  </div>
+  <div class="stage" id="stage"><canvas id="scene"></canvas><div class="ptag" id="ptag">⏸ 一時停止中</div></div>
+  <button class="box newsbar" id="newsbar" aria-label="ニュースの履歴を見る"><canvas class="ico" data-ico="tv" width="9" height="9"></canvas><span class="tag">ニュース</span><span class="nt" id="banner" aria-live="polite"></span><span class="mood" id="mood"></span></button>
+  <section class="box panel">
+    <h3><canvas class="dar ico" width="14" height="14" data-spr="red"></canvas>お店の状況<small>小さなだるまに 大きな福を</small></h3>
+    <div class="pbody">
+      <div class="pl">
+        <div class="sr"><canvas class="ico" data-ico="gear" width="9" height="9"></canvas>生産スピード<span class="sv"><canvas id="prodPips" width="54" height="8"></canvas><em id="sProdTxt"></em></span></div>
+        <div class="sr"><canvas class="ico" data-ico="chart" width="9" height="9"></canvas>本日の販売数<b id="sSold"></b></div>
+        <div class="sr"><canvas class="ico" data-ico="sad" width="9" height="9"></canvas>売り逃し数<b class="red" id="sMiss"></b></div>
+        <div class="sr"><canvas class="ico" data-ico="box" width="9" height="9"></canvas>倉庫の空き<b id="sWh"></b></div>
+        <div class="sr"><canvas class="ico" data-ico="rack" width="9" height="9"></canvas>乾燥棚の空き<b id="sRack"></b></div>
+      </div>
+      <div class="pr">
+        <div><div class="sh"><canvas class="ico" data-ico="bag" width="9" height="9"></canvas>素材の相場<b id="sM"></b></div>
+        <div class="mk"><span id="mk0">安定</span><span id="mk1">やや高騰</span><span id="mk2">高騰</span></div></div>
+        <div><div class="sh"><canvas class="ico" data-ico="box" width="9" height="9"></canvas>だるまの在庫<b id="sStockTot"></b></div>
+        <div class="stock" id="stock"></div></div>
+      </div>
+    </div>
+  </section>
+  <section class="box panel">
+    <h3><canvas class="ico" data-ico="brush" width="9" height="9"></canvas>作るだるまの色をえらぶ<small>職人全員がこの色を作ります</small></h3>
+    <div class="colors" id="colors"></div>
+  </section>
+  <div class="ctrl">
+    <button class="btn buy" id="bBuy"><canvas class="ico" data-ico="sack" width="9" height="9"></canvas><span class="bt" id="bBuyT"></span></button>
+    <button class="btn inv" id="bInvest"><canvas class="ico" data-ico="up" width="9" height="9"></canvas>投資</button>
+    <div class="spdbox"><div class="t">作業スピード</div><div class="spdrow">
+      <button class="spd" data-s="0" aria-label="一時停止">❚❚</button><button class="spd" data-s="1" aria-label="通常速度">▶</button><button class="spd" data-s="2" aria-label="2倍速">▶▶</button>
+    </div></div>
+  </div>
+  <div class="foot"><button class="link" id="bHelp">あそびかた</button><button class="link" id="bTitle">タイトルへ</button></div>
+</div>
+
+<div class="overlay" id="modal"><div class="dialog" id="dlg"></div></div>
+<div class="overlay show" id="title">
+  <div class="dialog titlebox">
+    <canvas class="tdar" width="14" height="14" data-spr="red"></canvas><br>
+    <div class="logo"><div><div class="lt">ポップだるま堂</div><span class="ls">繁盛記</span></div></div>
+    <p class="sub">昭和レトロな町のだるま工房。年末ラッシュと特需の波を読んで、1年で工房を大きくしよう。</p>
+    <button class="mbtn red big" id="tNew">はじめから</button>
+    <button class="mbtn big" id="tCont">つづきから</button>
+    <button class="link" id="tHelp" style="margin-top:10px">あそびかた</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
