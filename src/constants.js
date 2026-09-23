@@ -18,8 +18,8 @@ export const MM = [1.0, 0.8, 0.7, 0.8, 0.9, 0.8, 1.0, 1.3, 4.0, 4.5, 1.8, 1.2];
 export const QTY = 120;
 export const DRAW_UNIT = 10; // 工房シーンのだるま1体が表す個数（乾燥棚は容量に応じて増える）
 
-// 単価（1個あたり。v1 と同じ）
-export const BASE = 1500, MAT = 350;
+// 単価（1個あたり。売値は v1 と同じ、素材は難易度調整で v1 の350円から上げている）
+export const BASE = 1500, MAT = 550;
 export const PRICE_UNIT = 10; // 売値・素材価格は10円単位で丸める
 export const STOCK_VALUE = 600; // 決算時の完成品1個の評価額
 
@@ -49,12 +49,12 @@ export const POP = {
   legacy: 0.6, // 人気のない旧セーブを読み込んだときの人気（max に対する割合）
 };
 
-// 固定費・投資
-export const RENT = 360000;
+// 固定費・投資（家賃・給料は難易度調整で v1×QTY より高め）
+export const RENT = 500000;
 export const START_CASH = 2400000;
 export const STAFF = {
-  tatsu: { name: 'タツ', desc: '作業が速いベテラン', fee: 600000, wage: 480000, rate: 2.5 * QTY },
-  hana: { name: 'ハナ', desc: '堅実な職人', fee: 600000, wage: 480000, rate: 1.5 * QTY },
+  tatsu: { name: 'タツ', desc: '作業が速いベテラン', fee: 600000, wage: 600000, rate: 2.5 * QTY },
+  hana: { name: 'ハナ', desc: '堅実な職人', fee: 600000, wage: 600000, rate: 1.5 * QTY },
 };
 export const RACK_UP = [960000, 1440000, 1920000], WH_UP = [600000, 960000, 1440000];
 // 総資産による称号（上から判定）

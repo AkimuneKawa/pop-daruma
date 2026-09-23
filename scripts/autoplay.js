@@ -1,6 +1,6 @@
 // 自動プレイでバランスを検証する。
 // 使い方: npm run autoplay [-- 試行回数]
-// 目安: 投資なし＝一人前以上（年商 中央値約2,600万）、投資あり＝名工〜大名（年商 中央値約9,400万）、年商1億円は数%、人気★5は11月ごろ
+// 目安（難しめ）: 投資なし＝一人前6割・見習い4割、投資あり＝ほぼ一人前・閉店5%前後（年商 中央値約7,600万）、人気★5は11月ごろ
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt } from '../src/util.js';
 import { CK, TOTAL, RENT, MAT, REVENUE_GOAL, QTY } from '../src/constants.js';

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt, poisson } from '../src/util.js';
-import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP } from '../src/constants.js';
+import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP, RENT } from '../src/constants.js';
 import { migrate } from '../src/save.js';
 import { play, passive, active } from '../scripts/autoplay.js';
 
@@ -62,7 +62,7 @@ describe('production & payment', () => {
     sim.newDay(S, 10, { short: s => { short = s; } }, seeded(2));
     expect(S.strikes).toBe(1);
     expect(S.cash).toBe(0);
-    expect(short).toEqual({ cost: 360000, paid: 120000 });
+    expect(short).toEqual({ cost: RENT, paid: 120000 });
   });
   it('3回ショートで閉店', () => {
     const S = sim.newGame(seeded(1));
@@ -164,12 +164,15 @@ describe('balance (autoplay)', () => {
     const runs = Array.from({ length: n }, (_, i) => play(policy, i + 1));
     return runs.reduce((a, r) => a + r.score, 0) / n;
   };
-  it('投資なし＝一人前前後', () => {
+  // 難しめの調整：あかだけ作るプレイは一人前と見習いの境目、上手に回しても名工には届きにくい
+  it('投資なし＝一人前と見習いの境目', () => {
     const s = avg(passive, 10);
-    expect(s).toBeGreaterThanOrEqual(rankMin('一人前'));
+    expect(s).toBeGreaterThanOrEqual(rankMin('一人前') * 0.9);
     expect(s).toBeLessThan(rankMin('名工'));
   });
-  it('投資あり＝名工前後', () => {
-    expect(avg(active, 10)).toBeGreaterThanOrEqual(rankMin('名工') * 0.75);
+  it('投資あり＝一人前〜名工の手前', () => {
+    const s = avg(active, 10);
+    expect(s).toBeGreaterThanOrEqual(rankMin('一人前') * 1.4);
+    expect(s).toBeLessThan(rankMin('名工'));
   });
 });
