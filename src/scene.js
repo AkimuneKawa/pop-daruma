@@ -227,20 +227,34 @@ function drawVisitors(fr) {
   // ロープ
   R(116, 156, 4, 20, '#8a5a2b');
   for (let x = 120; x < W - ox; x += 6) R(x, 160, 6, 2, ((x / 6) | 0) % 2 ? '#fff6e6' : '#d8382a');
-  // 吹き出しは店先の客のうち目立つもの3人まで（業者・小売店・売り切れを優先）
+  drawBubbles(list);
+}
+// 吹き出し。店先の客は結果（買った！／売り切れ…）、向かってくる客は「欲しい色のだるま×個数」。
+// 2段（y=130・118）に重ならないよう置き、置けない分は省く。客ごとに前回の段を優先してちらつきを防ぐ
+const BUBBLE_ROWS = [130, 118], MAX_BUBBLES = 8;
+function drawBubbles(list) {
   const rank = v => v.type === 'trader' ? 0 : v.sold < v.want ? 1 : v.type === 'shop' ? 2 : 3;
-  const talk = list.filter(v => v.st === 'wait').sort((a, b) => rank(a) - rank(b) || a.wait - b.wait);
-  const placed = []; // 出した吹き出しの横範囲。重なるものは出さない
+  // 結果の吹き出しは4つまでにして、残りを向かってくる客の「欲しいもの」に回す
+  const waiting = list.filter(v => v.st === 'wait').sort((a, b) => rank(a) - rank(b) || a.wait - b.wait).slice(0, 4);
+  const coming = list.filter(v => v.st === 'in').sort((a, b) => a.x - b.x);
+  const placed = BUBBLE_ROWS.map(() => []); // 段ごとの使用中の横範囲
   ctx.font = '7px "DotGothic16",sans-serif';
-  for (const v of talk) {
-    if (placed.length >= 3) break;
-    const [txt, col] = bubbleText(v);
-    const x = Math.round(v.x) + 10, w = Math.ceil(ctx.measureText(txt).width) + 6;
-    const bx = Math.max(4, Math.min(W - ox * 2 - w - 2, x - w / 2));
-    if (placed.some(([l, r]) => bx < r + 2 && bx + w > l - 2)) continue;
-    placed.push([bx, bx + w]);
-    R(bx, 130, w, 11, INK); R(bx + 1, 131, w - 2, 9, '#fff6e6'); R(x - 1, 141, 3, 2, INK); R(x, 141, 1, 1, '#fff6e6');
-    T(txt, bx + w / 2, 135.5, 7, col);
+  let count = 0;
+  for (const v of [...waiting, ...coming]) {
+    if (count >= MAX_BUBBLES) break;
+    const want = v.st === 'in';
+    const [txt, col] = want ? [`×${v.want}`, INK] : bubbleText(v);
+    const tw = Math.ceil(ctx.measureText(txt).width), w = want ? tw + 15 : tw + 6;
+    const x = Math.round(v.x) + 10, bx = Math.max(4, Math.min(W - ox * 2 - w - 2, x - w / 2));
+    const order = v.row === 1 ? [1, 0] : [0, 1];
+    const row = order.find(r => !placed[r].some(([l, rr]) => bx < rr + 2 && bx + w > l - 2));
+    if (row === undefined) continue;
+    v.row = row; placed[row].push([bx, bx + w]); count++;
+    const by = BUBBLE_ROWS[row], head = 142 + v.y;
+    R(bx, by, w, 11, INK); R(bx + 1, by + 1, w - 2, 9, '#fff6e6');
+    R(x - 1, by + 11, 3, Math.max(1, head - by - 11), INK); // しっぽ
+    if (want) { sp(MINI, darPal(v.k), bx + 2, by + 1); T(txt, bx + 12 + tw / 2, by + 5.5, 7, col); }
+    else T(txt, bx + w / 2, by + 5.5, 7, col);
   }
 }
 function drawBunting(cols) {

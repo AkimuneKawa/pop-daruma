@@ -3,21 +3,8 @@ import { MONTHS } from './constants.js';
 // rng は () => [0,1) の関数。テスト・自動プレイではシード付きのものを渡す
 export const rint = (a, b, rng = Math.random) => a + Math.floor(rng() * (b - a + 1));
 export const pick = (a, rng = Math.random) => a[Math.floor(rng() * a.length)];
-// 金額を「2,400万円」「12億3,456万円」の形にする
-export function yen(n) {
-  const v = Math.round(n), a = Math.abs(v);
-  const oku = Math.floor(a / 1e8), man = Math.floor(a % 1e8 / 1e4), rest = a % 1e4;
-  const f = x => x.toLocaleString('ja-JP');
-  const s = (oku ? f(oku) + '億' : '') + (man ? f(man) + '万' : '') + (rest || (!oku && !man) ? f(rest) : '');
-  return (v < 0 ? '-' : '') + s + '円';
-}
-// 狭い欄用：1億以上は「12.34億円」、1万以上は「2,398万円」、それ未満は「5,210円」（いずれも切り捨て）
-export function yenShort(n) {
-  const v = Math.round(n), a = Math.abs(v), sign = v < 0 ? '-' : '';
-  if (a >= 1e8) return sign + Math.floor(a / 1e6) / 100 + '億円';
-  if (a >= 1e4) return sign + Math.floor(a / 1e4).toLocaleString('ja-JP') + '万円';
-  return yen(v);
-}
+// 金額をカンマ区切りにする（例：2,400,000円）
+export const yen = n => Math.round(n).toLocaleString('ja-JP') + '円';
 // 個数を「7,200」「2.4万」の形にする（1万以上は小数1桁で切り捨て）
 export function cnt(n) {
   const v = Math.round(n);

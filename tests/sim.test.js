@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as sim from '../src/sim.js';
-import { seeded, yen, yenShort, cnt, poisson } from '../src/util.js';
+import { seeded, yen, cnt, poisson } from '../src/util.js';
 import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY } from '../src/constants.js';
 import { migrate } from '../src/save.js';
 import { play, passive, active } from '../scripts/autoplay.js';
@@ -78,17 +78,10 @@ describe('production & payment', () => {
 const rankMin = name => RANKS.find(r => r[1] === name)[0];
 
 describe('money', () => {
-  it('万・億で表示する', () => {
+  it('金額はカンマ区切り', () => {
     expect(yen(0)).toBe('0円');
-    expect(yen(24000000)).toBe('2,400万円');
-    expect(yen(1000000000)).toBe('10億円');
-    expect(yen(1234560000)).toBe('12億3,456万円');
-    expect(yen(23985210)).toBe('2,398万5,210円');
-  });
-  it('狭い欄は切り捨てて短く表示する', () => {
-    expect(yenShort(23985210)).toBe('2,398万円');
-    expect(yenShort(1234560000)).toBe('12.34億円');
-    expect(yenShort(5210)).toBe('5,210円');
+    expect(yen(2400000)).toBe('2,400,000円');
+    expect(yen(100000000)).toBe('100,000,000円');
   });
   it('個数は1万以上を万で表示する', () => {
     expect(cnt(7200)).toBe('7,200');

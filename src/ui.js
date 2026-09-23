@@ -1,7 +1,7 @@
 // DOM の更新（パネル表示・モーダル・トースト）
 import { CK, TOTAL, COLORS, QTY } from './constants.js';
 import { MINI, spr, darPal, paintStatic } from './sprites.js';
-import { yen, yenShort, cnt, dateStr } from './util.js';
+import { yen, cnt, dateStr } from './util.js';
 import * as sim from './sim.js';
 
 export const $ = s => document.querySelector(s);
@@ -20,9 +20,13 @@ export function renderUI(S, speed) {
   const d = sim.curDay(S);
   $('#date').textContent = dateStr(d);
   $('#left').textContent = `のこり${Math.max(0, TOTAL - S.day)}日`;
-  $('#cash').textContent = yenShort(S.cash);
-  $('#due').textContent = `あと${10 - (S.day % 10)}日（${yenShort(sim.monthly(S))}）`;
-  $('#recv').textContent = '+' + yenShort(sim.recvTotal(S));
+  const cashTxt = yen(S.cash), cashEl = $('#cash');
+  cashEl.textContent = cashTxt;
+  // 桁が増えたら文字を小さくして枠に収める（「99,999,999円」で11文字）
+  cashEl.style.fontSize = cashTxt.length >= 11 ? '1.25rem' : cashTxt.length >= 10 ? '1.45rem' : '';
+  $('#due').textContent = `あと${10 - (S.day % 10)}日`;
+  $('#dueAmt').textContent = yen(sim.monthly(S));
+  $('#recv').textContent = '+' + yen(sim.recvTotal(S));
   $('#ptag').classList.toggle('show', speed === 0 && !S.over);
   $('#banner').textContent = S.banner || '';
   $('#mood').textContent = sim.mood(S);

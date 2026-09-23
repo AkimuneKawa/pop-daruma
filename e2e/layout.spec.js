@@ -6,12 +6,12 @@ const SIZES = [
   { width: 375, height: 667 },
 ];
 
-// 表示が最も長くなる状態（億単位の金額、最大規模の棚・倉庫、万単位の在庫と販売数）
+// 表示が最も長くなる状態（8桁の所持金・7桁の予定収入、最大規模の棚・倉庫、万単位の在庫と販売数）
 async function setWorstCase(page) {
   await page.evaluate(() => {
     const S = window.__daruma.S;
-    S.cash = 1234560000;
-    S.recv.push({ amt: 987650000, due: 99 });
+    S.cash = 99999999;
+    S.recv.push({ amt: 9999999, due: 99 });
     S.staff = ['tatsu', 'hana'];
     S.rackLv = 3; S.whLv = 3;
     S.mat = 12345; S.fin = { red: 23456, green: 12345, sky: 9876, yellow: 16543 };
@@ -31,7 +31,7 @@ for (const vp of SIZES) for (const big of [false, true]) {
     await page.screenshot({ path: `e2e/screenshots/${vp.width}x${vp.height}${big ? '-big' : ''}.png` });
 
     // 文字そのものが枠（罫線の内側）に収まっているか。右寄せのはみ出しも拾うため Range で測る
-    const clipped = await page.evaluate(() => ['#cash', '#due', '#recv', '#bBuyT', '#date', '#left',
+    const clipped = await page.evaluate(() => ['#cash', '#due', '#dueAmt', '#recv', '#bBuyT', '#date', '#left',
       '#sSold', '#sMiss', '#sWh', '#sRack', '#sM', '#sStockTot', '#st-red', '#st-green', '#st-sky', '#st-yellow']
       .map(s => document.querySelector(s))
       .filter(el => {
