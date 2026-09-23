@@ -16,30 +16,34 @@ export const SHARE = {
   rush: { red: 0.7, gold: 0.14, pink: 0.06, sky: 0.05, green: 0.05 },
 };
 export const MONTHS = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'];
-export const TOTAL = 120, DAY_SEC = 15, DRY = 3;
+// 時間：1ステップ＝1週（実時間 STEP_SEC 秒）。1ヶ月＝4週、1年＝48週（4月第1週〜3月第4週）
+export const WEEKS = 4, TOTAL = 48, STEP_SEC = 15;
+export const DRY = 1, PAY_DELAY = 1; // 乾燥にかかる週数、売上が入金されるまでの週数
 // 月別の需要倍率（4月始まり）。11〜12月が年末商戦、1月は年明けで客足が急に減る
 export const MM = [1.0, 0.8, 0.7, 0.8, 0.9, 0.8, 1.2, 3.5, 4.5, 0.5, 1.0, 0.8];
-// 年末商戦（11〜12月）。売値が上がり、素材の入荷が細り、職人の求人が止まる。
-// 10月後半から素材の相場が上がり始める
-export const RUSH = { start: 70, end: 90, price: 1.4, preStart: 65 };
+// 年末商戦（11〜12月＝28〜35週）。売値が上がり、素材の入荷が細り、職人の求人が止まる。
+// 10月後半（26週）から素材の相場が上がり始める
+export const RUSH = { start: 28, end: 36, price: 1.4, preStart: 26 };
+// 素材の相場が1週で動く幅（目標に向かって上昇・下降）
+export const MARKET_STEP = { up: 0.5, down: 0.3 };
 
-// 規模の倍率。v1（HANDOFF.md）に比べて、数量（生産・需要・在庫・容量・仕入れ・入荷上限）と
-// 固定費（家賃・給料・投資・初期資金）を QTY 倍にし、単価（売値・素材）は据え置く。
-// 売上＝単価×数量なので、比率は v1 と同じままで年商が QTY 倍になる（上手なプレイで1億円）
-export const QTY = 120;
+// 規模。QTY は「1週あたりの量」の単位で、v1（HANDOFF.md）の「1日あたり1個」を QTY 個/週に置き換える
+// （生産・需要・仕入れ・入荷上限）。在庫・容量は1年に作って売る量に合わせて別に決める。
+// 売値3,000円×年間の数量で、上手なプレイの年商が1億円前後になる
+export const QTY = 140;
 export const DRAW_UNIT = 10; // 工房シーンのだるま1体が表す個数（乾燥棚は容量に応じて増える）
 
-// 単価（1個あたり。売値は v1 と同じ、素材は難易度調整で v1 の350円から上げている）
-export const BASE = 1500, MAT = 550;
+// 単価（1個あたり）。素材は売値の約37%
+export const BASE = 3000, MAT = 1100;
 export const PRICE_UNIT = 10; // 売値・素材価格は10円単位で丸める
-export const STOCK_VALUE = 600; // 決算時の完成品1個の評価額
+export const STOCK_VALUE = 1200; // 決算時の完成品1個の評価額
 
 // 数量
-export const SELF_RATE = 2 * QTY; // 本人の生産数（個/日）
-export const BUY_N = 10 * QTY; // 1タップで仕入れる数
-export const START_MAT = 10 * QTY, START_RED = 2 * QTY;
-export const RACK_BASE = 6 * QTY, RACK_STEP = 4 * QTY; // 乾燥棚の容量と1段階の増分
-export const WH_BASE = 20 * QTY, WH_STEP = 15 * QTY; // 倉庫の容量と1段階の増分
+export const SELF_RATE = 2 * QTY; // 本人の生産数（個/週）
+export const BUY_N = 500; // 1タップで仕入れる数
+export const START_MAT = 600, START_RED = 120; // 開店時の素材と完成品（あか）
+export const RACK_BASE = 300, RACK_STEP = 200; // 乾燥棚の容量と1段階の増分（乾燥1週ぶんの生産に合わせる）
+export const WH_BASE = 1200, WH_STEP = 900; // 倉庫の容量と1段階の増分
 
 // 客の種類。p＝割合、min〜max＝1人が欲しがる個数。在庫が足りなければあるだけ買い、残りは売り逃し
 export const BUYERS = [
@@ -54,7 +58,7 @@ export const MEAN_BUY = BUYERS.reduce((a, b) => a + b.p * (b.min + b.max) / 2, 0
 // 人気。欲しい分を全部買えた客で上がり、何も買えなかった客で下がる。
 // 通常の客足（特需を除く）は人気に応じて minMult〜maxMult 倍になる
 export const POP = {
-  max: 2500, // この値で客足が最大になる（上手なプレイで9月ごろ）
+  max: 1250, // この値で客足が最大になる（上手なプレイで5〜6月ごろ）
   minMult: 0.5, maxMult: 1.45,
   gain: { person: 1, shop: 3, trader: 8 }, // 満足した客1人あたり
   miss: 0.5, // 何も買えなかった客1人あたり
@@ -62,11 +66,11 @@ export const POP = {
   legacy: 0.6, // 人気のない旧セーブを読み込んだときの人気（max に対する割合）
 };
 
-// 宣伝。お金で人気を買い（pop）、days 日間は通常の客足が boost だけ増える。同じ宣伝は効果が切れるまで重ねられない
+// 宣伝。お金で人気を買い（pop）、weeks 週間は通常の客足が boost だけ増える。同じ宣伝は効果が切れるまで重ねられない
 export const ADS = {
-  flyer: { name: 'チラシ', desc: '近所にチラシを配る', cost: 150000, pop: 100, boost: 0.25, days: 3 },
-  sns: { name: 'SNS広告', desc: 'スマホに広告を出す', cost: 500000, pop: 250, boost: 0.5, days: 4 },
-  tvcm: { name: 'テレビCM', desc: '地元のテレビでCMを流す', cost: 1800000, pop: 600, boost: 1.0, days: 5 },
+  flyer: { name: 'チラシ', desc: '近所にチラシを配る', cost: 150000, pop: 50, boost: 0.25, weeks: 1 },
+  sns: { name: 'SNS広告', desc: 'スマホに広告を出す', cost: 500000, pop: 125, boost: 0.5, weeks: 2 },
+  tvcm: { name: 'テレビCM', desc: '地元のテレビでCMを流す', cost: 1800000, pop: 300, boost: 1.0, weeks: 2 },
 };
 
 // 固定費・投資（家賃・給料は難易度調整で v1×QTY より高め）
@@ -75,8 +79,8 @@ export const START_CASH = 2400000;
 // 職人。名簿（roster.js）の100人から、週ごとに入れ替わる求職者を雇う
 export const CRAFT = {
   max: 6, // 同時に雇える人数
-  poolSize: 4, poolEvery: 5, // 求職者の人数と入れ替わる間隔（日）。1ヶ月10日なので「週」＝5日
-  ratePerSpeed: 0.8 * QTY, // 素早さ★1あたりの生産（個/日）
+  poolSize: 4, poolEvery: 1, // 求職者の人数と入れ替わる間隔（週）
+  ratePerSpeed: 0.8 * QTY, // 素早さ★1あたりの生産（個/週）
   selfSkill: 2, // 本人のうまさ。工房の腕前の基準（★2で人気の上がり方1倍）
   // 月給＝base＋perSpeed×素早さ＋perSkill×うまさ＋both×素早さ×うまさ（円）
   wage: { base: 100000, perSpeed: 60000, perSkill: 60000, both: 15000 },
@@ -89,12 +93,16 @@ export const WH_UP = [600000, 960000, 1440000, 2000000, 2600000, 3300000];
 export const RANKS = [[48000000, 'だるま大名'], [24000000, '名工'], [9600000, '一人前'], [0, '見習い']];
 export const REVENUE_GOAL = 100000000;
 
-// セーブ。v1＝元の単一HTML、v2＝金額1200倍、v3＝数量1200倍、v4＝いま（数量120倍・客は1人ずつ）
-export const SAVE_KEY = 'popdaruma_rt_v4';
-// 旧セーブの変換倍率：数量×qty、金額×money、乾燥棚が1個ずつ（束でない）なら batch=false
+// セーブ。v1＝元の単一HTML、v2＝金額1200倍、v3＝数量1200倍、v4＝数量120倍（1日単位）、v5＝いま（1週単位・売値3,000円）
+export const SAVE_KEY = 'popdaruma_rt_v5';
+// 旧セーブの変換。まず数量×qty・金額×money で v4 の規模にそろえ（乾燥棚が1個ずつなら batch=false）、
+// そのあと日→週に直す（weekify）
 export const OLD_SAVES = [
-  { key: 'popdaruma_rt_v3', qty: QTY / 1200, money: QTY / 1200, batch: true },
-  { key: 'popdaruma_rt_v2', qty: QTY, money: QTY / 1200, batch: false },
-  { key: 'popdaruma_rt_v1', qty: QTY, money: QTY, batch: false },
+  { key: 'popdaruma_rt_v4', qty: 1, money: 1, batch: true },
+  { key: 'popdaruma_rt_v3', qty: 120 / 1200, money: 120 / 1200, batch: true },
+  { key: 'popdaruma_rt_v2', qty: 120, money: 120 / 1200, batch: false },
+  { key: 'popdaruma_rt_v1', qty: 120, money: 120, batch: false },
 ];
-export const FLAVOR = ['常連のおばあちゃんが赤だるまを褒めてくれた', '隣の駄菓子屋からラムネの差し入れ', 'ラジオから昭和歌謡が流れている', '今日もいい天気。筆がよくのる', '近所の子どもがだるまを数えに来た'];
+// v4（1日単位）→ v5（1週単位）：時刻×time、数量×qty、人気×pop
+export const WEEKIFY = { time: 0.4, qty: 0.5, pop: 0.5 };
+export const FLAVOR = ['常連のおばあちゃんが赤だるまを褒めてくれた', '隣の駄菓子屋からラムネの差し入れ', 'ラジオから昭和歌謡が流れている', 'いい天気が続いて、筆がよくのる', '近所の子どもがだるまを数えに来た'];

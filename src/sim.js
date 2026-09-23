@@ -1,6 +1,6 @@
 // ゲームのシミュレーション本体。DOM に依存しない。
 // 状態 S を引数で受け取り、画面側への通知は hooks 経由で行う。
-import { COLORS, CK, TOTAL, DRY, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE, ADS } from './constants.js';
+import { COLORS, CK, TOTAL, DRY, PAY_DELAY, WEEKS, MARKET_STEP, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE, ADS } from './constants.js';
 import { rint, pick, yen, cnt, poisson, monthOf, dateStr } from './util.js';
 import { ROSTER, wageOf } from './roster.js';
 import { EVENT_TYPES, genEvents, demandOf, priceOf } from './events.js';
@@ -41,7 +41,7 @@ export const popStars = S => Math.min(5, 1 + Math.floor(popRatio(S) * 5));
 
 /* ---------- 開始・セーブ互換 ---------- */
 export const inRush = d => d >= RUSH.start && d < RUSH.end;
-// その日に起きている（act）／予告中（ann）のイベント
+// その週に起きている（act）／予告中（ann）のイベント
 export const activeEvents = (S, d, p = 'act') => S.events.filter(e => phase(e, d) === p);
 // 色 k が作れない（ホルムズ海峡封鎖中のきん など）
 export const colorStopped = (S, k, d = curDay(S)) => activeEvents(S, d).some(e => EVENT_TYPES[e.type].stop?.includes(k));
@@ -54,8 +54,8 @@ export function newGame(rng = Math.random) {
   };
   refreshPool(S, rng);
   updateMarket(S, true);
-  S.banner = '4月1日、だるま堂 開店！素材を切らさないように';
-  S.news = [{ t: '職人が「作る色」のだるまを自動で作ります' }, { t: 'お客さんの欲しいだるまを切らさず売ると、人気が上がって客足が増えます' }, { t: '11月〜12月の年末商戦が一番の書き入れ時。11月からは素材も職人も足りなくなるので、10月までに仕込もう' }];
+  S.banner = '4月第1週、だるま堂 開店！素材を切らさないように';
+  S.news = [...dayNews(S, 0).map(t => ({ t })), { t: '職人が「作る色」のだるまを自動で作ります' }, { t: 'お客さんの欲しいだるまを切らさず売ると、人気が上がって客足が増えます' }, { t: '11月〜12月の年末商戦が一番の書き入れ時。11月からは素材も職人も足りなくなるので、10月までに仕込もう' }];
   return S;
 }
 // 求職者を入れ替える（雇っている人は除く）
@@ -90,7 +90,7 @@ export function normalize(S) {
     for (const r of S.rack ?? []) if (r.c === 'yellow') r.c = 'gold';
     if (S.color === 'yellow') S.color = 'gold';
   }
-  if (!Array.isArray(S.events) || S.events.some(e => !EVENT_TYPES[e.type])) S.events = genEvents();
+  if (!Array.isArray(S.events) || S.events.some(e => !EVENT_TYPES[e.type])) { S.events = genEvents(); updateMarket(S, true); }
   if (!Array.isArray(S.pool)) refreshPool(S);
   if (!Array.isArray(S.ads)) S.ads = [];
   return S;
@@ -107,13 +107,13 @@ export function marketTarget(S, d) {
     if (p === 'ann') { t = Math.max(t, 1.3); cap = Math.min(cap, 24); }
     if (p === 'act') { t = Math.max(t, T.market.t); cap = Math.min(cap, T.market.cap); }
   }
-  return { t, cap: cap * QTY }; // 入荷上限（個/日）
+  return { t, cap: cap * QTY }; // 入荷上限（個/週）
 }
 export function updateMarket(S, first) {
   const { t, cap } = marketTarget(S, S.day);
   if (first) S.m = t;
-  else if (t > S.m) S.m = Math.min(t, S.m + 0.2);
-  else S.m = Math.max(t, S.m - 0.12);
+  else if (t > S.m) S.m = Math.min(t, S.m + MARKET_STEP.up);
+  else S.m = Math.max(t, S.m - MARKET_STEP.down);
   S.m = Math.round(S.m * 100) / 100;
   S.sup = cap;
 }
@@ -121,7 +121,7 @@ export function updateMarket(S, first) {
 /* ---------- 需要 ---------- */
 export function lambda(S, d) {
   const mo = monthOf(d), share = inRush(d) ? SHARE.rush : SHARE.normal;
-  const base = 2.4 * QTY * MM[mo] * S.noise * popMult(S) * (1 + adBoost(S, d)), rate = {}, mult = {}; // rate は需要（個/日）。イベントの上乗せは人気に関係しない
+  const base = 2.4 * QTY * MM[mo] * S.noise * popMult(S) * (1 + adBoost(S, d)), rate = {}, mult = {}; // rate は需要（個/週）。イベントの上乗せは人気に関係しない
   const org = {}; // 色ごとの客の国籍の重み
   for (const k of CK) {
     rate[k] = base * share[k]; mult[k] = COLORS[k].price * (inRush(d) ? RUSH.price : 1);
@@ -173,8 +173,8 @@ export function runAd(S, id) {
   if (!canAd(S, id)) return null;
   const A = ADS[id];
   S.cash -= A.cost; S.pop += A.pop;
-  S.ads = S.ads.filter(a => S.t < a.until).concat({ id, until: S.t + A.days });
-  return `${A.name}を打った！人気が上がり、${A.days}日間お客さんが増える`;
+  S.ads = S.ads.filter(a => S.t < a.until).concat({ id, until: S.t + A.weeks });
+  return `${A.name}を打った！人気が上がり、${A.weeks}週間お客さんが増える`;
 }
 
 /* ---------- ニュース・町の空気 ---------- */
@@ -186,19 +186,19 @@ export function dayNews(S, d) {
     if (d === e.start) out.push(T.start(e));
     if (d === e.start + e.len) out.push(T.end(e));
   }
-  if (d === 60) out.push('10月。年末商戦に向けて在庫と素材を仕込む時期。11月からは素材も職人も足りなくなる');
+  if (d === 24) out.push('10月。年末商戦に向けて在庫と素材を仕込む時期。11月からは素材も職人も足りなくなる');
   if (d === RUSH.preStart) out.push('素材の問屋が年末に向けて値上げを始めた');
   if (d === RUSH.start) out.push('年末商戦開幕！あかだるまが飛ぶように売れる。素材の入荷は細り、職人の求人も止まった');
-  if (d === 80) out.push('12月。書き入れ時の本番！');
+  if (d === 32) out.push('12月。書き入れ時の本番！');
   if (d === RUSH.end) out.push('年が明けた…客足がぱったり途絶えた。売れ残りを抱えすぎないように');
-  if (d === 110) out.push('最終月。3月10日の営業終了で決算です');
+  if (d === 44) out.push('最終月。3月第4週の営業終了で決算です');
   return out;
 }
 export function mood(S) {
   const d = curDay(S), act = activeEvents(S, d);
   if (act.length) return EVENT_TYPES[act[act.length - 1].type].mood;
   if (inRush(d)) return '年末商戦！';
-  if (d >= RUSH.end && d < 100) return '年明けで閑散';
+  if (d >= RUSH.end && d < RUSH.end + WEEKS) return '年明けで閑散';
   if (activeEvents(S, d, 'ann').length || (d >= RUSH.preStart && d < RUSH.start)) return '町がざわついています';
   return 'いつもの町';
 }
@@ -206,8 +206,8 @@ export function mood(S) {
 /* ---------- 時間進行 ---------- */
 // hooks（すべて省略可）:
 //   sale(k, type, want, sold, origin)  客1人ごと（type＝客の種類、want＝欲しい個数、sold＝買えた個数、origin＝jp/cn/west）
-//   news()           その日のニュースがバナーに出たとき
-//   save()           日替わりの保存タイミング
+//   news()           その週のニュースがバナーに出たとき
+//   save()           週替わりの保存タイミング
 //   short(info)      資金ショート {cost, paid}
 //   end(bankrupt)    ゲーム終了（S.over=true 済み）
 export function step(S, dd, hooks = {}, rng = Math.random) {
@@ -238,7 +238,7 @@ export function step(S, dd, hooks = {}, rng = Math.random) {
       if (hooks.sale) hooks.sale(k, b.type, b.want, r.sold, rollOrigin(org[k], rng));
     }
   }
-  if (amt) S.recv.push({ amt, due: S.t + DRY });
+  if (amt) S.recv.push({ amt, due: S.t + PAY_DELAY });
   let got = 0;
   S.recv = S.recv.filter(r => { if (r.due <= S.t) { got += r.amt; return false; } return true; });
   S.cash += got;
@@ -251,7 +251,7 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
   const lines = [`${dateStr(nd - 1)}：販売${cnt(td.sold)}個 ${yen(td.rev)}${td.missed ? `／売り逃し${cnt(td.missed)}個` : ''}`];
   S.today = { sold: 0, missed: 0, rev: 0 };
   let short = null, hot = [];
-  if (nd % 10 === 0) {
+  if (nd % WEEKS === 0) {
     const cost = monthly(S);
     if (S.cash >= cost) { S.cash -= cost; S.lowMorale = false; hot.push(`月末の支払い ${yen(cost)} を済ませた`); }
     else { const paid = S.cash; S.cash = 0; S.strikes++; S.lowMorale = S.staff.length > 0; hot.push(`資金ショート（${S.strikes}/3）`); short = { cost, paid }; }
@@ -268,7 +268,7 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
   hot = hot.concat(dayNews(S, nd));
   for (const a of S.ads) if (a.until <= nd && a.until > nd - 1) hot.push(`${ADS[a.id].name}の効果が切れた`);
   S.ads = S.ads.filter(a => a.until > nd);
-  if (nd % CRAFT.poolEvery === 0) { refreshPool(S, rng); if (S.pool.length) hot.push('求職者が入れ替わった（投資メニューから雇える）'); }
+  if (nd % CRAFT.poolEvery === 0) refreshPool(S, rng); // 求職者は毎週入れ替わる（ニュースにはしない）
   const stars = popStars(S);
   if (stars > S.popStars) hot.push(`人気が上がった！「${POP.names[stars - 1]}」に。客足が増える`);
   if (stars < S.popStars) hot.push(`品切れ続きで人気が下がった…「${POP.names[stars - 1]}」に`);
@@ -284,15 +284,15 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
 
 /* ---------- プレイヤー操作 ---------- */
 export const buyQty = S => Math.max(0, Math.min(BUY_N, S.sup, whFree(S), Math.floor(S.cash / matPrice(S))));
-// 仕入れる。買えなければ null
-export function buy(S) {
-  const n = buyQty(S);
+// 仕入れる（limit を渡すとその数まで）。買えなければ null
+export function buy(S, limit = Infinity) {
+  const n = Math.min(buyQty(S), Math.floor(limit));
   if (n < 1) return null;
   const cost = n * matPrice(S);
   S.cash -= cost; S.mat += n; S.sup -= n;
   return { n, cost };
 }
-export const buyBlockReason = S => S.sup < 1 ? (marketTarget(S, S.day).cap === 0 ? '物流ストップ中' : '本日は入荷終了') : whFree(S) < 1 ? '倉庫が満杯' : 'お金が足りない';
+export const buyBlockReason = S => S.sup < 1 ? (marketTarget(S, S.day).cap === 0 ? '物流ストップ中' : '今週は入荷終了') : whFree(S) < 1 ? '倉庫が満杯' : 'お金が足りない';
 export function prodReason(S) {
   if (S.color === 'stop') return '停止中';
   if (colorStopped(S, S.color)) return `${COLORS[S.color].name}は生産停止`;

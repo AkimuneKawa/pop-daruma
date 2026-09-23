@@ -22,7 +22,7 @@ test('音：タップで有効になり、BGMは動いている間だけ、切�
   expect((await st()).bgm).toBe('normal');
 
   // 年末商戦に入るとお祭りの曲に替わる
-  await page.evaluate(() => { const S = window.__daruma.S; S.t = 72.1; S.day = 72; });
+  await page.evaluate(() => { const S = window.__daruma.S; S.t = 29.1; S.day = 29; });
   await page.waitForTimeout(600);
   expect((await st()).bgm).toBe('rush');
 

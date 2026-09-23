@@ -1,6 +1,6 @@
 // 起動・ゲームループ・プレイヤー操作の配線
 import './style.css';
-import { DAY_SEC, STOCK_VALUE, REVENUE_GOAL, BUY_N, POP, CRAFT, ADS } from './constants.js';
+import { STEP_SEC, STOCK_VALUE, REVENUE_GOAL, BUY_N, POP, CRAFT, ADS } from './constants.js';
 import { yen, cnt, esc } from './util.js';
 import * as sim from './sim.js';
 import { save as saveState, load } from './save.js';
@@ -64,7 +64,7 @@ function setSpeed(s) {
   renderUI();
 }
 const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
-const craftLine = c => `<b class="cn">${c.name}</b><span class="cs">うまさ<span class="st">${stars(c.skill)}</span>素早さ<span class="st">${stars(c.speed)}</span></span><small>${c.desc}。生産+${cnt(sim.craftRate(c))}個/日・月給${yen(c.wage)}</small>`;
+const craftLine = c => `<b class="cn">${c.name}</b><span class="cs">うまさ<span class="st">${stars(c.skill)}</span>素早さ<span class="st">${stars(c.speed)}</span></span><small>${c.desc}。生産+${cnt(sim.craftRate(c))}個/週・月給${yen(c.wage)}</small>`;
 function openInvest() {
   let confirmFire = null; // 「やめてもらう」は2回押しで確定
   const draw = () => {
@@ -74,7 +74,7 @@ function openInvest() {
     const pool = sim.poolCrafts(S).map(c => `<div class="row"><div class="grow craft">${craftLine(c)}</div><button class="mbtn orange" data-hire="${c.id}" ${sim.canHire(S, c) ? '' : 'disabled'}>雇う<br><small>${yen(c.fee)}</small></button></div>`).join('') || '<p class="sub">今週の求職者はもういません</p>';
     modal(`<h2>投資</h2><p class="sub">所持金 ${yen(S.cash)}／毎月の支払い ${yen(sim.monthly(S))}</p>${up}
       <h3 class="mh">職人 ${S.staff.length}/${CRAFT.max}人 <small>工房の腕前 ${sim.teamSkill(S).toFixed(1)}</small></h3>${mine}
-      <h3 class="mh">今週の求職者 <small>あと${sim.nextPoolIn(S)}日で入れ替わり${full ? '／職人がいっぱいです' : ''}</small></h3>${pool}
+      <h3 class="mh">今週の求職者 <small>毎週入れ替わり${full ? '／職人がいっぱいです' : ''}</small></h3>${pool}
       <p class="sub">うまさが高い職人がいると、お客さんが満足したときに人気が上がりやすくなります。素早さは作る速さです。</p>`);
     const dlg = $('#dlg');
     dlg.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { toast(sim.invest(S, b.dataset.u)); sound.invest(); save(); renderUI(); draw(); });
@@ -92,7 +92,7 @@ function openAd() {
     const rows = Object.entries(ADS).map(([id, A]) => {
       const on = sim.activeAd(S, id);
       const left = on ? Math.ceil(on.until - S.t) : 0;
-      return `<div class="row"><div class="grow">${A.name}<br><small>${A.desc}。人気がすぐ上がり（ゲージ+${Math.round(A.pop / POP.max * 100)}%）、${A.days}日間お客さんが${A.boost >= 1 ? `${A.boost + 1}倍` : `+${Math.round(A.boost * 100)}%`}</small></div>${on ? `<span class="sub">効果中<br>あと${left}日</span>` : `<button class="mbtn orange" data-ad="${id}" ${sim.canAd(S, id) ? '' : 'disabled'}>${yen(A.cost)}</button>`}</div>`;
+      return `<div class="row"><div class="grow">${A.name}<br><small>${A.desc}。人気がすぐ上がり（ゲージ+${Math.round(A.pop / POP.max * 100)}%）、${A.weeks}週間お客さんが${A.boost >= 1 ? `${A.boost + 1}倍` : `+${Math.round(A.boost * 100)}%`}</small></div>${on ? `<span class="sub">効果中<br>あと${left}週</span>` : `<button class="mbtn orange" data-ad="${id}" ${sim.canAd(S, id) ? '' : 'disabled'}>${yen(A.cost)}</button>`}</div>`;
     }).join('');
     modal(`<h2>宣伝</h2><p class="sub">お金で人気を買い、しばらくお客さんを呼び込みます。在庫を用意してから打ちましょう。所持金 ${yen(S.cash)}</p>${rows}`);
     $('#dlg').querySelectorAll('[data-ad]').forEach(b => b.onclick = () => {
@@ -105,17 +105,17 @@ function openAd() {
 }
 function openHelp(after) {
   modal(`<h2>あそびかた</h2><div class="help"><ul>
-  <li>時間は自動で流れます（1日＝約15秒、1ヶ月＝10日）。❚❚でいつでも止められます。</li>
+  <li>時間は自動で流れます（1週＝約15秒、1ヶ月＝4週）。❚❚でいつでも止められます。</li>
   <li>画面下の「音」で、BGMと効果音／効果音だけ／音なしを切り替えられます。</li>
-  <li><b>作る色</b>：職人全員が選んだ色のだるまを作ります。1個につき素材1つ。乾燥棚で3日乾くと完成品になります。</li>
+  <li><b>作る色</b>：職人全員が選んだ色のだるまを作ります。1個につき素材1つ。乾燥棚で1週間乾くと完成品になります。</li>
   <li><b>やめる</b>にすると素材を素材のまま温存できます。どの色にも使えるので、流行が読めないときの備えになります。</li>
-  <li><b>販売</b>：お客さんが来て自動で売れます。ふつうのお客さんは1〜3個、土産物屋はまとめて、卸の業者は最大100個買っていきます。在庫が足りない分は売り逃し。お金が入るのは3日後です。</li>
+  <li><b>販売</b>：お客さんが来て自動で売れます。ふつうのお客さんは1〜3個、土産物屋はまとめて、卸の業者は最大100個買っていきます。在庫が足りない分は売り逃し。お金が入るのは翌週です。</li>
   <li><b>人気</b>：欲しいだるまを全部買えたお客さんが増えるほど人気ゲージが伸び（Lv1〜5）、客足が増えます。売り切れで何も買えないと少し下がります。</li>
   <li><b>宣伝</b>：チラシ・SNS広告・テレビCMで、お金を払って人気を上げ、しばらくお客さんを増やせます。在庫を用意してから打ちましょう。</li>
-  <li><b>職人</b>：投資メニューから雇えます（最大${CRAFT.max}人）。求職者は5日ごとに入れ替わります。素早さが高いほどたくさん作り、うまさが高いほど人気が上がりやすくなります。どちらも高い人ほど給料も高めです。</li>
+  <li><b>職人</b>：投資メニューから雇えます（最大${CRAFT.max}人）。求職者は毎週入れ替わります。素早さが高いほどたくさん作り、うまさが高いほど人気が上がりやすくなります。どちらも高い人ほど給料も高めです。</li>
   <li><b>素材を買う</b>：1タップで${cnt(BUY_N)}個。特需の予告が出ると相場が上がり、特需中は入荷が絞られます。</li>
   <li><b>月末</b>に家賃と給料を払います。払えないと資金ショート、3回で閉店。</li>
-  <li><b>季節</b>：4月は桜の観光客でピンク・あお・みどり、2月は春節の観光客であか・きんが売れます。11〜12月の年末商戦が最大の山場ですが、素材の入荷が細り職人も雇えなくなるので、10月までに在庫と素材を仕込みましょう。年が明けると客足がぱったり減るので、売れ残りに注意。3月10日で決算です。</li>
+  <li><b>季節</b>：4月は桜の観光客でピンク・あお・みどり、2月は春節の観光客であか・きんが売れます。11〜12月の年末商戦が最大の山場ですが、素材の入荷が細り職人も雇えなくなるので、10月までに在庫と素材を仕込みましょう。年が明けると客足がぱったり減るので、売れ残りに注意。3月第4週で決算です。</li>
   <li><b>できごと</b>：テレビ特集やSNSのバズで特定の色が売れたり、台風・原材料高騰・ホルムズ海峡封鎖（きんが作れなくなる）が起きたりします。ニュースを見逃さずに。</li>
   <li><b>きん</b>は売値が高い高級品。普段はあまり売れませんが、年末商戦と春節で人気です。</li>
   <li>腕に覚えがあれば、<b>年商${yen(REVENUE_GOAL)}</b>を目指そう。</li></ul></div>
@@ -137,8 +137,8 @@ function loop(now) {
   const sec = last ? Math.min(0.1, (now - last) / 1000) : 0;
   last = now;
   if (S && !S.over && speed > 0) {
-    // 経過時間 × 速度を 0.01日刻みで進める
-    const dd = sec * speed / DAY_SEC, n = Math.ceil(dd / 0.01);
+    // 経過時間 × 速度を 0.01週刻みで進める
+    const dd = sec * speed / STEP_SEC, n = Math.ceil(dd / 0.01);
     for (let i = 0; i < n && !S.over && speed > 0; i++) sim.step(S, dd / n, hooks);
     moveVisitors(sec * speed);
   }

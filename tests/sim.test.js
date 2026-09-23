@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt, poisson } from '../src/util.js';
-import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP, RENT, CRAFT, ADS } from '../src/constants.js';
-import { migrate } from '../src/save.js';
+import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP, RENT, CRAFT, ADS, START_MAT, START_RED, RACK_BASE, WH_BASE, WEEKS, TOTAL } from '../src/constants.js';
+import { migrate, weekify } from '../src/save.js';
 import { ROSTER, wageOf } from '../src/roster.js';
 import { play, passive, active } from '../scripts/autoplay.js';
 
@@ -10,11 +10,12 @@ describe('newGame', () => {
   it('初期状態が仕様どおり', () => {
     const S = sim.newGame(seeded(1));
     expect(S.cash).toBe(START_CASH);
-    expect(S.mat).toBe(10 * QTY);
-    expect(S.fin).toEqual({ red: 2 * QTY, gold: 0, pink: 0, sky: 0, green: 0 });
-    expect(sim.rackCap(S)).toBe(6 * QTY);
-    expect(sim.whCap(S)).toBe(20 * QTY);
-    expect(S.sup).toBe(24 * QTY); // 開店日は桜の予告中で入荷が絞られる
+    expect(S.mat).toBe(START_MAT);
+    expect(S.fin).toEqual({ red: START_RED, gold: 0, pink: 0, sky: 0, green: 0 });
+    expect(sim.rackCap(S)).toBe(RACK_BASE);
+    expect(sim.whCap(S)).toBe(WH_BASE);
+    expect(S.sup).toBe(24 * QTY); // 開店週は桜の予告中で入荷が絞られる
+    expect(TOTAL).toBe(12 * WEEKS); // 1年＝48週
     expect(S.events.filter(e => e.type === 'tv' || e.type === 'sns')).toHaveLength(3);
     expect(S.events.filter(e => e.type === 'sakura')).toHaveLength(1);
     expect(S.events.filter(e => e.type === 'shunsetsu')).toHaveLength(1);
@@ -29,42 +30,42 @@ describe('market', () => {
   it('年末商戦（11〜12月）は目標1.9・入荷12、10月後半は1.4・20', () => {
     const S = sim.newGame(seeded(1));
     S.events = [];
-    expect(sim.marketTarget(S, 75)).toEqual({ t: 1.9, cap: 12 * QTY });
-    expect(sim.marketTarget(S, 85)).toEqual({ t: 1.9, cap: 12 * QTY });
-    expect(sim.marketTarget(S, 67)).toEqual({ t: 1.4, cap: 20 * QTY });
-    expect(sim.marketTarget(S, 95)).toEqual({ t: 1, cap: 40 * QTY });
-    expect(sim.marketTarget(S, 5)).toEqual({ t: 1, cap: 40 * QTY });
+    expect(sim.marketTarget(S, 29)).toEqual({ t: 1.9, cap: 12 * QTY }); // 11月
+    expect(sim.marketTarget(S, 34)).toEqual({ t: 1.9, cap: 12 * QTY }); // 12月
+    expect(sim.marketTarget(S, 26)).toEqual({ t: 1.4, cap: 20 * QTY }); // 10月後半
+    expect(sim.marketTarget(S, 37)).toEqual({ t: 1, cap: 40 * QTY }); // 1月
+    expect(sim.marketTarget(S, 2)).toEqual({ t: 1, cap: 40 * QTY });
   });
-  it('相場は上昇+0.2／下降-0.12ずつ', () => {
+  it('相場は1週で上昇+0.5／下降-0.3ずつ', () => {
     const S = sim.newGame(seeded(1));
-    S.events = []; S.day = 85; S.m = 1;
+    S.events = []; S.day = 30; S.m = 1;
+    sim.updateMarket(S, false);
+    expect(S.m).toBe(1.5);
+    S.day = 2; S.m = 1.5;
     sim.updateMarket(S, false);
     expect(S.m).toBe(1.2);
-    S.day = 5; S.m = 1.5;
-    sim.updateMarket(S, false);
-    expect(S.m).toBe(1.38);
   });
 });
 
 describe('production & payment', () => {
-  it('素材を使って棚に入り、3日で完成品になる', () => {
+  it('素材を使って棚に入り、1週で完成品になる', () => {
     const rng = seeded(3);
     const S = sim.newGame(rng);
     S.events = [];
-    for (let i = 0; i < 100; i++) sim.step(S, 0.01, {}, rng);
-    // 本人 2QTY 個/日（小数の端数で±1個ずれうる）
-    expect(Math.abs(S.mat - 8 * QTY)).toBeLessThanOrEqual(1);
-    expect(Math.abs(sim.rackUsed(S) - 2 * QTY)).toBeLessThanOrEqual(1);
-    for (let i = 0; i < 375; i++) sim.step(S, 0.01, {}, rng); // t=4.75：t≦1.75 に作った分は乾いている
-    expect(S.fin.red + S.stats.sold).toBeGreaterThanOrEqual(2 * QTY + 3.4 * QTY);
+    for (let i = 0; i < 50; i++) sim.step(S, 0.01, {}, rng); // 半週
+    // 本人 2QTY 個/週（小数の端数で±1個ずれうる）
+    expect(Math.abs(S.mat - (START_MAT - QTY))).toBeLessThanOrEqual(1);
+    expect(Math.abs(sim.rackUsed(S) - QTY)).toBeLessThanOrEqual(1);
+    for (let i = 0; i < 125; i++) sim.step(S, 0.01, {}, rng); // t=1.75：t≦0.75 に作った分は乾いている
+    expect(S.fin.red + S.stats.sold).toBeGreaterThanOrEqual(START_RED + 1.4 * QTY);
     // 素材→棚→完成品→販売 で個数が保存される（最初の素材と完成品の合計）
-    expect(sim.finN(S) + sim.rackUsed(S) + S.mat + S.stats.sold).toBe(12 * QTY);
+    expect(sim.finN(S) + sim.rackUsed(S) + S.mat + S.stats.sold).toBe(START_MAT + START_RED);
   });
   it('月末に払えなければ資金ショート', () => {
     const S = sim.newGame(seeded(1));
     S.cash = 120000;
     let short = null;
-    sim.newDay(S, 10, { short: s => { short = s; } }, seeded(2));
+    sim.newDay(S, WEEKS, { short: s => { short = s; } }, seeded(2));
     expect(S.strikes).toBe(1);
     expect(S.cash).toBe(0);
     expect(short).toEqual({ cost: RENT, paid: 120000 });
@@ -73,7 +74,7 @@ describe('production & payment', () => {
     const S = sim.newGame(seeded(1));
     S.strikes = 2; S.cash = 0;
     let ended = null;
-    sim.newDay(S, 10, { end: b => { ended = b; } }, seeded(2));
+    sim.newDay(S, WEEKS, { end: b => { ended = b; } }, seeded(2));
     expect(S.over).toBe(true);
     expect(ended).toBe(true);
     expect(sim.settle(S, true).rank).toBe('閉店');
@@ -95,7 +96,7 @@ describe('popularity', () => {
     const before = S.pop;
     for (let i = 0; i < 100; i++) sim.step(S, 0.01, {}, seeded(i + 1)); // 1日分
     expect(S.pop).toBeGreaterThan(before);
-    S.fin = { red: 0, gold: 0, pink: 0, sky: 0, green: 0 }; S.color = 'stop';
+    S.fin = { red: 0, gold: 0, pink: 0, sky: 0, green: 0 }; S.rack = []; S.color = 'stop';
     const high = S.pop;
     for (let i = 0; i < 100; i++) sim.step(S, 0.01, {}, seeded(i + 500));
     expect(S.pop).toBeLessThan(high);
@@ -174,17 +175,31 @@ describe('money', () => {
     expect(cnt(24000)).toBe('2.4万');
     expect(cnt(206543)).toBe('20.6万');
   });
-  it('v1 セーブは金額と数量を QTY 倍に変換する', () => {
+  it('v1 セーブは金額と数量を120倍（v4 の規模）にそろえる', () => {
     const v1 = { cash: 20000, mat: 10, fin: { red: 2, green: 0, sky: 1, yellow: 0 }, rack: [{ c: 'red', ready: 3 }], sup: 40,
       recv: [{ amt: 1500, due: 3 }], stats: { sold: 1, missed: 2, rev: 1500 }, today: { sold: 1, missed: 0, rev: 1500 } };
     const S = migrate(v1, OLD_SAVES.find(o => o.key.endsWith('v1')));
-    expect(S.cash).toBe(20000 * QTY);
-    expect(S.recv[0].amt).toBe(1500 * QTY);
-    expect(S.mat).toBe(10 * QTY);
-    expect(S.fin.sky).toBe(QTY);
-    expect(S.rack).toEqual([{ c: 'red', n: QTY, ready: 3 }]);
-    expect(S.stats).toEqual({ sold: QTY, missed: 2 * QTY, rev: 1500 * QTY });
+    expect(S.cash).toBe(20000 * 120);
+    expect(S.recv[0].amt).toBe(1500 * 120);
+    expect(S.mat).toBe(10 * 120);
+    expect(S.fin.sky).toBe(120);
+    expect(S.rack).toEqual([{ c: 'red', n: 120, ready: 3 }]);
+    expect(S.stats).toEqual({ sold: 120, missed: 240, rev: 1500 * 120 });
     expect(sim.isValidSave(S)).toBe(true);
+  });
+  it('v4（1日単位）のセーブを週単位に直す', () => {
+    const v4 = { t: 50.5, day: 50, cash: 5000000, mat: 1000, fin: { red: 400, gold: 0, pink: 0, sky: 0, green: 0 }, rack: [{ c: 'red', n: 300, ready: 52 }],
+      recv: [{ amt: 1000, due: 53 }], stats: { sold: 2000, missed: 100, rev: 3000000 }, today: { sold: 10, missed: 0, rev: 15000 }, pop: 2000, ads: [{ id: 'sns', until: 52 }],
+      events: [{ type: 'tv', start: 60, len: 4, ann: 3, color: 'red' }], staff: [], pool: [], color: 'red' };
+    const S = sim.normalize(weekify(v4));
+    expect(S.day).toBe(20);
+    expect(S.t).toBeCloseTo(20.2);
+    expect(S.mat).toBe(500);
+    expect(S.fin.red).toBe(200);
+    expect(S.rack[0]).toEqual({ c: 'red', n: 150, ready: 52 * 0.4 });
+    expect(S.cash).toBe(5000000); // 金額はそのまま
+    expect(S.pop).toBe(1000);
+    expect(S.events.some(e => e.type === 'sakura')).toBe(true); // 週の暦で作り直す
   });
   it('v3 セーブ（数量・金額とも1200倍）は1/10にする', () => {
     const v3 = { cash: 24000000, mat: 12000, fin: { red: 2400, green: 0, sky: 0, yellow: 0 }, rack: [{ c: 'sky', n: 2400, ready: 5 }], sup: 48000,
@@ -237,15 +252,15 @@ describe('seasons & events', () => {
   it('年末商戦は11〜12月で、1月に客足が急に減る', () => {
     const S = sim.newGame(seeded(1));
     S.events = []; S.noise = 1;
-    const nov = sim.lambda(S, 75).rate.red, jan = sim.lambda(S, 95).rate.red, oct = sim.lambda(S, 62).rate.red;
+    const nov = sim.lambda(S, 29).rate.red, jan = sim.lambda(S, 37).rate.red, oct = sim.lambda(S, 24).rate.red;
     expect(nov).toBeGreaterThan(oct * 3);
     expect(jan).toBeLessThan(oct);
-    expect(sim.inRush(75)).toBe(true);
-    expect(sim.inRush(95)).toBe(false);
+    expect(sim.inRush(29)).toBe(true);
+    expect(sim.inRush(37)).toBe(false);
   });
   it('年末商戦中は求職者が来ない', () => {
     const S = sim.newGame(seeded(1));
-    S.day = 75;
+    S.day = 30;
     sim.refreshPool(S);
     expect(S.pool).toHaveLength(0);
   });

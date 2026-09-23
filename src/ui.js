@@ -1,5 +1,5 @@
 // DOM の更新（パネル表示・モーダル・トースト）
-import { CK, TOTAL, COLORS, POP, SELF_RATE, CRAFT } from './constants.js';
+import { CK, TOTAL, WEEKS, COLORS, POP, SELF_RATE, CRAFT } from './constants.js';
 
 // 生産スピードのピップ1個あたりの生産量（素早さ★5を最大人数雇ったときにちょうど6個）
 const PIP = (SELF_RATE + CRAFT.max * 5 * CRAFT.ratePerSpeed) / 6;
@@ -28,12 +28,12 @@ export function renderUI(S, speed) {
   pipCtx ??= $('#prodPips').getContext('2d');
   const d = sim.curDay(S);
   $('#date').textContent = dateStr(d);
-  $('#left').textContent = `のこり${Math.max(0, TOTAL - S.day)}日`;
+  $('#left').textContent = `のこり${Math.max(0, TOTAL - S.day)}週`;
   const cashTxt = yen(S.cash), cashEl = $('#cash');
   cashEl.textContent = cashTxt;
   // 桁が増えたら文字を小さくして枠に収める（「99,999,999円」で11文字）
   cashEl.style.fontSize = cashTxt.length >= 11 ? '1.25rem' : cashTxt.length >= 10 ? '1.45rem' : '';
-  $('#due').textContent = `あと${10 - (S.day % 10)}日`;
+  $('#due').textContent = `あと${WEEKS - (S.day % WEEKS)}週`;
   $('#dueAmt').textContent = yen(sim.monthly(S));
   $('#recv').textContent = '+' + yen(sim.recvTotal(S));
   $('#ptag').classList.toggle('show', speed === 0 && !S.over);

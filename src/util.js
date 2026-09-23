@@ -1,4 +1,4 @@
-import { MONTHS } from './constants.js';
+import { MONTHS, WEEKS } from './constants.js';
 
 // rng は () => [0,1) の関数。テスト・自動プレイではシード付きのものを渡す
 export const rint = (a, b, rng = Math.random) => a + Math.floor(rng() * (b - a + 1));
@@ -24,8 +24,8 @@ export function poisson(lam, rng = Math.random) {
   return Math.max(0, Math.round(lam + Math.sqrt(lam) * g));
 }
 export const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-export const monthOf = d => Math.min(11, Math.floor(d / 10));
-export const dateStr = d => `${MONTHS[monthOf(d)]}${d % 10 + 1}日`;
+export const monthOf = d => Math.min(11, Math.floor(d / WEEKS));
+export const dateStr = d => `${MONTHS[monthOf(d)]}第${d % WEEKS + 1}週`;
 
 // シード付き乱数（mulberry32）
 export function seeded(seed) {
