@@ -119,7 +119,7 @@ canvas.ico{width:1.35em;height:1.35em}
 .mbtn.red{background:var(--red);color:#fff6e6}.mbtn.orange{background:var(--orange)}
 .warn{color:var(--red);font-size:13px}
 .res{width:100%;border-collapse:collapse;margin:8px 0}
-.res td{padding:3px 0;border-bottom:2px dashed var(--gray)}.res td:last-child{text-align:right}
+.res td{padding:3px 0;border-bottom:2px dashed var(--gray)}.res td:last-child{text-align:right;white-space:nowrap;padding-left:8px}
 .rank{font-size:20px;text-align:center}
 .help ul{padding-left:18px;margin:6px 0}.help li{margin:4px 0;font-size:14px}
 .log p{margin:4px 0;font-size:14px;border-bottom:1px dashed var(--gray);padding-bottom:4px}

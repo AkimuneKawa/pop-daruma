@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import * as sim from '../src/sim.js';
-import { seeded } from '../src/util.js';
+import { seeded, yen } from '../src/util.js';
+import { RANKS, START_CASH } from '../src/constants.js';
+import { migrateV1 } from '../src/save.js';
 import { play, passive, active } from '../scripts/autoplay.js';
 
 describe('newGame', () => {
   it('初期状態が仕様どおり', () => {
     const S = sim.newGame(seeded(1));
-    expect(S.cash).toBe(20000);
+    expect(S.cash).toBe(START_CASH);
     expect(S.mat).toBe(10);
     expect(S.fin).toEqual({ red: 2, green: 0, sky: 0, yellow: 0 });
     expect(sim.rackCap(S)).toBe(6);
@@ -52,12 +54,12 @@ describe('production & payment', () => {
   });
   it('月末に払えなければ資金ショート', () => {
     const S = sim.newGame(seeded(1));
-    S.cash = 1000;
+    S.cash = 1200000;
     let short = null;
     sim.newDay(S, 10, { short: s => { short = s; } }, seeded(2));
     expect(S.strikes).toBe(1);
     expect(S.cash).toBe(0);
-    expect(short).toEqual({ cost: 3000, paid: 1000 });
+    expect(short).toEqual({ cost: 3600000, paid: 1200000 });
   });
   it('3回ショートで閉店', () => {
     const S = sim.newGame(seeded(1));
@@ -70,6 +72,23 @@ describe('production & payment', () => {
   });
 });
 
+const rankMin = name => RANKS.find(r => r[1] === name)[0];
+
+describe('money', () => {
+  it('万・億で表示する', () => {
+    expect(yen(0)).toBe('0円');
+    expect(yen(24000000)).toBe('2,400万円');
+    expect(yen(1000000000)).toBe('10億円');
+    expect(yen(1234560000)).toBe('12億3,456万円');
+  });
+  it('v1 セーブの金額を1200倍に変換する', () => {
+    const S = migrateV1({ cash: 20000, recv: [{ amt: 1500, due: 3 }], stats: { rev: 1500 }, today: { rev: 0 } });
+    expect(S.cash).toBe(24000000);
+    expect(S.recv[0].amt).toBe(1800000);
+    expect(S.stats.rev).toBe(1800000);
+  });
+});
+
 describe('balance (autoplay)', () => {
   const avg = (policy, n) => {
     const runs = Array.from({ length: n }, (_, i) => play(policy, i + 1));
@@ -77,10 +96,10 @@ describe('balance (autoplay)', () => {
   };
   it('投資なし＝一人前前後', () => {
     const s = avg(passive, 10);
-    expect(s).toBeGreaterThanOrEqual(80000);
-    expect(s).toBeLessThan(200000);
+    expect(s).toBeGreaterThanOrEqual(rankMin('一人前'));
+    expect(s).toBeLessThan(rankMin('名工'));
   });
   it('投資あり＝名工前後', () => {
-    expect(avg(active, 10)).toBeGreaterThanOrEqual(150000);
+    expect(avg(active, 10)).toBeGreaterThanOrEqual(rankMin('名工') * 0.75);
   });
 });

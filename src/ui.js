@@ -1,7 +1,7 @@
 // DOM の更新（パネル表示・モーダル・トースト）
 import { CK, TOTAL, COLORS } from './constants.js';
 import { MINI, spr, darPal, paintStatic } from './sprites.js';
-import { yen, num, dateStr } from './util.js';
+import { yen, yenShort, dateStr } from './util.js';
 import * as sim from './sim.js';
 
 export const $ = s => document.querySelector(s);
@@ -20,9 +20,9 @@ export function renderUI(S, speed) {
   const d = sim.curDay(S);
   $('#date').textContent = dateStr(d);
   $('#left').textContent = `のこり${Math.max(0, TOTAL - S.day)}日`;
-  $('#cash').textContent = num(S.cash) + '円';
-  $('#due').textContent = `あと${10 - (S.day % 10)}日（${yen(sim.monthly(S))}）`;
-  $('#recv').textContent = '+' + num(sim.recvTotal(S)) + '円';
+  $('#cash').textContent = yenShort(S.cash);
+  $('#due').textContent = `あと${10 - (S.day % 10)}日（${yenShort(sim.monthly(S))}）`;
+  $('#recv').textContent = '+' + yenShort(sim.recvTotal(S));
   $('#ptag').classList.toggle('show', speed === 0 && !S.over);
   $('#banner').textContent = S.banner || '';
   $('#mood').textContent = sim.mood(S);

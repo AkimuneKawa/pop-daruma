@@ -6,13 +6,37 @@ const SIZES = [
   { width: 375, height: 667 },
 ];
 
-for (const vp of SIZES) {
-  test(`${vp.width}x${vp.height} でスクロールなし・はみ出しなし`, async ({ page }) => {
+// 表示が最も長くなる金額（億単位の所持金・予定収入、職人2人分の月末支払い）
+async function setWorstCaseMoney(page) {
+  await page.evaluate(() => {
+    const S = window.__daruma.S;
+    S.cash = 1234560000;
+    S.recv.push({ amt: 987650000, due: 99 });
+    S.staff = ['tatsu', 'hana'];
+  });
+}
+
+for (const vp of SIZES) for (const big of [false, true]) {
+  test(`${vp.width}x${vp.height}${big ? '（億単位の金額）' : ''} でスクロールなし・はみ出しなし`, async ({ page }) => {
     await page.setViewportSize(vp);
     await page.goto('/');
     await page.evaluate(() => document.fonts.ready);
     await page.click('#tNew');
+    if (big) await setWorstCaseMoney(page);
     await page.waitForTimeout(1500);
+    await page.screenshot({ path: `e2e/screenshots/${vp.width}x${vp.height}${big ? '-big' : ''}.png` });
+
+    // 文字そのものが枠（罫線の内側）に収まっているか。右寄せのはみ出しも拾うため Range で測る
+    const clipped = await page.evaluate(() => ['#cash', '#due', '#recv', '#bBuyT', '#date', '#left']
+      .map(s => document.querySelector(s))
+      .filter(el => {
+        const range = document.createRange(); range.selectNodeContents(el);
+        const t = range.getBoundingClientRect();
+        const box = el.closest('.box,.btn'), b = box.getBoundingClientRect(), cs = getComputedStyle(box);
+        return t.left < b.left + parseFloat(cs.borderLeftWidth) - 0.5 || t.right > b.right - parseFloat(cs.borderRightWidth) + 0.5;
+      })
+      .map(el => `#${el.id}: ${el.textContent}`));
+    expect(clipped).toEqual([]);
 
     const m = await page.evaluate(() => {
       const de = document.documentElement;
@@ -23,7 +47,6 @@ for (const vp of SIZES) {
         .map(({ el, r }) => `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}.${el.className} ${Math.round(r.right)}x${Math.round(r.bottom)}`);
       return { sh: de.scrollHeight, sw: de.scrollWidth, ih: innerHeight, iw: innerWidth, overflow };
     });
-    await page.screenshot({ path: `e2e/screenshots/${vp.width}x${vp.height}.png` });
 
     expect(m.sh).toBeLessThanOrEqual(m.ih);
     expect(m.sw).toBeLessThanOrEqual(m.iw);

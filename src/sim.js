@@ -1,6 +1,6 @@
 // ゲームのシミュレーション本体。DOM に依存しない。
 // 状態 S を引数で受け取り、画面側への通知は hooks 経由で行う。
-import { COLORS, CK, TOTAL, DRY, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, STAFF, RACK_UP, WH_UP, FLAVOR } from './constants.js';
+import { COLORS, CK, TOTAL, DRY, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, STAFF, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL } from './constants.js';
 import { rint, pick, yen, monthOf, dateStr } from './util.js';
 
 /* ---------- 派生値 ---------- */
@@ -14,7 +14,7 @@ export const staffRate = S => S.staff.reduce((a, id) => a + STAFF[id].rate, 0);
 export const prodRate = S => SELF_RATE + (S.lowMorale ? staffRate(S) / 2 : staffRate(S));
 export const monthly = S => RENT + S.staff.reduce((a, id) => a + STAFF[id].wage, 0);
 export const recvTotal = S => S.recv.reduce((a, r) => a + r.amt, 0);
-export const matPrice = S => Math.round(MAT * S.m / 10) * 10;
+export const matPrice = S => Math.round(MAT * S.m / PRICE_UNIT) * PRICE_UNIT;
 export const phase = (e, d) => (d >= e.start && d < e.start + e.len) ? 'act' : ((d >= e.start - e.ann && d < e.start) ? 'ann' : null);
 export const curDay = S => Math.min(S.day, TOTAL - 1);
 
@@ -28,7 +28,7 @@ export function genEvents(rng = Math.random) {
 }
 export function newGame(rng = Math.random) {
   const S = {
-    t: 0, day: 0, cash: 20000, mat: 10, fin: { red: 2, green: 0, sky: 0, yellow: 0 }, rack: [], color: 'red', prog: 0,
+    t: 0, day: 0, cash: START_CASH, mat: 10, fin: { red: 2, green: 0, sky: 0, yellow: 0 }, rack: [], color: 'red', prog: 0,
     rackLv: 0, whLv: 0, staff: [], recv: [], m: 1, sup: 40, noise: 1, events: genEvents(rng), strikes: 0, lowMorale: false,
     stats: { sold: 0, missed: 0, rev: 0 }, today: { sold: 0, missed: 0, rev: 0 }, news: [], banner: '', over: false,
   };
@@ -80,7 +80,7 @@ function arrive(S, k, mult) {
   let ok = false;
   if (S.fin[k] > 0) {
     S.fin[k]--;
-    const p = Math.round(BASE * mult / 10) * 10;
+    const p = Math.round(BASE * mult / PRICE_UNIT) * PRICE_UNIT;
     S.recv.push({ amt: p, due: S.t + DRY });
     S.today.sold++; S.today.rev += p; S.stats.sold++; S.stats.rev += p;
     ok = true;
@@ -211,7 +211,7 @@ export function invest(S, u) {
 
 /* ---------- 決算 ---------- */
 export function settle(S, bankrupt) {
-  const stock = finN(S) * 600 + S.mat * MAT, score = S.cash + recvTotal(S) + stock;
-  const rank = bankrupt ? '閉店' : score >= 400000 ? 'だるま大名' : score >= 200000 ? '名工' : score >= 80000 ? '一人前' : '見習い';
-  return { stock, score, rank };
+  const stock = finN(S) * STOCK_VALUE + S.mat * MAT, score = S.cash + recvTotal(S) + stock;
+  const rank = bankrupt ? '閉店' : RANKS.find(([min]) => score >= min)[1];
+  return { stock, score, rank, revenue: S.stats.rev, goal: S.stats.rev >= REVENUE_GOAL };
 }

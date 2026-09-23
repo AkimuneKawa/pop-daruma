@@ -1,6 +1,6 @@
 // 起動・ゲームループ・プレイヤー操作の配線
 import './style.css';
-import { DAY_SEC } from './constants.js';
+import { DAY_SEC, STOCK_VALUE, REVENUE_GOAL } from './constants.js';
 import { yen, esc } from './util.js';
 import * as sim from './sim.js';
 import { save as saveState, load } from './save.js';
@@ -29,10 +29,10 @@ const hooks = {
 function startNew() { S = sim.newGame(); save(); clearVisitors(); }
 
 function showEnd(bankrupt) {
-  const { stock, score, rank } = sim.settle(S, bankrupt);
+  const { stock, score, rank, revenue, goal } = sim.settle(S, bankrupt);
   modal(`<h2>${bankrupt ? '閉店…' : '決算！'}</h2><p class="sub">${bankrupt ? '資金ショートが3回続き、工房を閉じることになりました。' : '1年間おつかれさまでした。'}</p>
-  <table class="res"><tr><td>所持金</td><td>${yen(S.cash)}</td></tr><tr><td>予定収入</td><td>${yen(sim.recvTotal(S))}</td></tr><tr><td>在庫（完成品は1個¥600で評価）</td><td>${yen(stock)}</td></tr><tr><td>総資産</td><td>${yen(score)}</td></tr><tr><td>販売数</td><td>${S.stats.sold}個</td></tr><tr><td>売り逃し</td><td>${S.stats.missed}個</td></tr></table>
-  <p class="rank">称号：${rank}</p><button class="mbtn red big" id="again">もう一度あそぶ</button>`, { noClose: true });
+  <table class="res"><tr><td>年商（1年の売上）</td><td>${yen(revenue)}</td></tr><tr><td>所持金</td><td>${yen(S.cash)}</td></tr><tr><td>予定収入</td><td>${yen(sim.recvTotal(S))}</td></tr><tr><td>在庫（完成品は1個${yen(STOCK_VALUE)}で評価）</td><td>${yen(stock)}</td></tr><tr><td>総資産</td><td>${yen(score)}</td></tr><tr><td>販売数</td><td>${S.stats.sold}個</td></tr><tr><td>売り逃し</td><td>${S.stats.missed}個</td></tr></table>
+  <p class="rank">称号：${rank}</p>${bankrupt ? '' : goal ? `<p class="rank red">★ 年商${yen(REVENUE_GOAL)} 達成！ ★</p>` : `<p class="sub" style="text-align:center">目標の年商${yen(REVENUE_GOAL)}まで あと${yen(REVENUE_GOAL - revenue)}</p>`}<button class="mbtn red big" id="again">もう一度あそぶ</button>`, { noClose: true });
   $('#again').onclick = () => { startNew(); closeModal(); renderUI(); setSpeed(1); };
 }
 
@@ -68,12 +68,13 @@ function openHelp(after) {
   <li><b>販売</b>：お客さんが来て自動で売れます。在庫がない色は売り逃し。お金が入るのは3日後です。</li>
   <li><b>素材を買う</b>：1タップで10個。特需の予告が出ると相場が上がり、特需中は入荷が絞られます。</li>
   <li><b>月末</b>に家賃と給料を払います。払えないと資金ショート、3回で閉店。</li>
-  <li>12月〜1月の年末ラッシュが最大の山場。3月10日で決算です。</li></ul></div>
+  <li>12月〜1月の年末ラッシュが最大の山場。3月10日で決算です。</li>
+  <li>腕に覚えがあれば、<b>年商${yen(REVENUE_GOAL)}</b>を目指そう。</li></ul></div>
   <button class="mbtn big" id="ok">とじる</button>`);
   $('#ok').onclick = () => { closeModal(); if (after) after(); };
 }
 function openLog() {
-  modal(`<h2>ニュースの履歴</h2><div class="log">${S.news.slice(0, 20).map(n => `<p>${esc(n.t)}</p>`).join('') || '<p>まだありません</p>'}</div>`);
+  modal(`<h2>ニュースの履歴</h2><p class="sub">ここまでの年商 ${yen(S.stats.rev)}（目標 ${yen(REVENUE_GOAL)}）</p><div class="log">${S.news.slice(0, 20).map(n => `<p>${esc(n.t)}</p>`).join('') || '<p>まだありません</p>'}</div>`);
 }
 function showTitle() {
   const sv = load();
