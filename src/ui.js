@@ -17,6 +17,12 @@ export function buildStatic() {
 }
 
 let pipCtx = null;
+let lastPop = { S: null, ratio: 0, stars: 1 };
+function flashGauge(g, mark, dir) {
+  g.classList.remove('up', 'down'); void g.offsetWidth; g.classList.add(dir);
+  mark.textContent = dir === 'up' ? '▲' : '▼'; mark.classList.toggle('dn', dir === 'down');
+  clearTimeout(flashGauge.h); flashGauge.h = setTimeout(() => { mark.textContent = ''; }, 1200);
+}
 export function renderUI(S, speed) {
   if (!S) return;
   pipCtx ??= $('#prodPips').getContext('2d');
@@ -33,9 +39,20 @@ export function renderUI(S, speed) {
   $('#ptag').classList.toggle('show', speed === 0 && !S.over);
   $('#banner').textContent = S.banner || '';
   $('#mood').textContent = sim.mood(S);
-  const stars = sim.popStars(S);
-  $('#pop').innerHTML = '人気 ' + [1, 2, 3, 4, 5].map(i => `<i class="${i <= stars ? '' : 'off'}">★</i>`).join('');
+  // 人気ゲージ。上がると光って▲、下がると赤く光って▼。段階（Lv1〜5）が上がったら呼び出し元に知らせる
+  const ratio = sim.popRatio(S), stars = sim.popStars(S);
+  $('#popFill').style.width = (ratio * 100).toFixed(1) + '%';
+  $('#popLv').textContent = 'Lv' + stars;
   $('#pop').title = POP.names[stars - 1];
+  const g = $('#popG'), up = $('#popUp');
+  let levelUp = false;
+  if (lastPop.S === S) {
+    if (ratio > lastPop.ratio + 0.002) flashGauge(g, up, 'up');
+    else if (ratio < lastPop.ratio - 0.002) flashGauge(g, up, 'down');
+    levelUp = stars > lastPop.stars;
+  }
+  lastPop = { S, ratio, stars };
+  $('#bAd').classList.toggle('on', S.ads.some(a => S.t < a.until));
   // 生産スピードのだるまピップ
   const reason = sim.prodReason(S), r = sim.prodRate(S), filled = reason ? 0 : Math.min(6, Math.max(1, Math.round(r / PIP)));
   pipCtx.clearRect(0, 0, 54, 8);
@@ -57,6 +74,8 @@ export function renderUI(S, speed) {
   bb.disabled = S.over || n < 1;
   $('#bBuyT').innerHTML = n > 0 ? `素材を買う ×${cnt(n)}<small>${yen(n * sim.matPrice(S))}</small>` : `素材を買う<small>${sim.buyBlockReason(S)}</small>`;
   $('#bInvest').disabled = S.over;
+  $('#bAd').disabled = S.over;
+  return { levelUp, stars };
 }
 
 export function toast(t) {

@@ -114,6 +114,8 @@ function arpeggio(notes, step, type = 'square', vol = 0.15) {
 export const invest = () => arpeggio([72, 76, 79, 84], 0.07); // ドミソド
 export const hire = () => arpeggio([74, 78, 81, 86, 81, 86], 0.08); // 小さなファンファーレ
 export const news = () => arpeggio([88, 84], 0.12, 'triangle', 0.18); // ピンポン
+export const levelUp = () => arpeggio([79, 83, 86, 91, 86, 91, 95], 0.07, 'square', 0.15); // キラキラ上昇
+export const ad = () => arpeggio([67, 72, 76, 79, 84], 0.06, 'square', 0.14); // 宣伝のジングル
 export const short = () => arpeggio([60, 59, 58, 57], 0.12, 'sawtooth', 0.12); // ブブー
 export function end(bankrupt) {
   if (bankrupt) arpeggio([67, 63, 60, 55], 0.22, 'triangle', 0.2);

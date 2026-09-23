@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt, poisson } from '../src/util.js';
-import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP, RENT, CRAFT } from '../src/constants.js';
+import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP, RENT, CRAFT, ADS } from '../src/constants.js';
 import { migrate } from '../src/save.js';
 import { ROSTER, wageOf } from '../src/roster.js';
 import { play, passive, active } from '../scripts/autoplay.js';
@@ -279,5 +279,29 @@ describe('seasons & events', () => {
     expect(S.rack[0].c).toBe('gold');
     expect(S.color).toBe('gold');
     expect(S.events.some(e => e.type === 'sakura')).toBe(true);
+  });
+});
+
+describe('ads', () => {
+  it('宣伝を打つと人気が上がり、期間中は客足が増え、重ねて打てない', () => {
+    const S = sim.newGame(seeded(1));
+    S.events = []; S.noise = 1; S.cash = 1e7;
+    const before = sim.lambda(S, 5).rate.red, pop = S.pop;
+    expect(sim.runAd(S, 'sns')).toContain('SNS広告');
+    expect(S.pop).toBe(pop + ADS.sns.pop);
+    expect(S.cash).toBe(1e7 - ADS.sns.cost);
+    // 人気が上がったぶんと宣伝のぶんで客足が増える
+    expect(sim.lambda(S, 0).rate.red).toBeGreaterThan(before * (1 + ADS.sns.boost));
+    expect(sim.runAd(S, 'sns')).toBeNull();
+    expect(sim.canAd(S, 'flyer')).toBe(true);
+  });
+  it('効果が切れたらニュースになり、客足が戻る', () => {
+    const S = sim.newGame(seeded(1));
+    S.events = []; S.cash = 1e7;
+    sim.runAd(S, 'flyer');
+    for (let i = 0; i < 400; i++) sim.step(S, 0.01, {}, seeded(i + 1));
+    expect(sim.activeAd(S, 'flyer')).toBeUndefined();
+    expect(sim.adBoost(S)).toBe(0);
+    expect(S.news.some(n => n.t.includes('チラシの効果が切れた'))).toBe(true);
   });
 });

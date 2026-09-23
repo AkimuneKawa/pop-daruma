@@ -17,6 +17,7 @@ export const ICONS = {
   up:[".....RRR.","......RR.",".....R.R.","....KR.KK","KK.KR..KK","KKKR...KK","KKK.KK.KK","KKK.KK.KK","KKKKKKKKK"],
   sad:["..KKKKK..",".KSSSSSK.","KSSSSSSSK","KSKSSSKSK","KSSSSSSSK","KSSKKKSSK","KSKSSSKSK",".KSSSSSK.","..KKKKK.."],
   tv:[".K.....K.","..K...K..","KKKKKKKKK","KSSSSSKOK","KSDSDSKRK","KSSSSSKOK","KSDDDSKRK","KKKKKKKKK",".K.....K."],
+  mega:["......K..",".....KRK.","...KKRRK.","KKKRRRRK.","KWKRRRRKY","KKKRRRRK.","...KKRRK.",".....KRK.","......K.."],
   brush:[".......KK","......KRK",".....KRK.","....KRK..","...KBK...","..KBK....",".KKK.....","KKK......","KK......."],
 };
 export const IPAL = { K: INK, R: '#e2412f', O: '#f0782a', Y: '#f5c742', W: '#fff6e6', L: '#d9a860', B: '#8a5a2b', S: '#9cc7ef', D: '#6b6358' };

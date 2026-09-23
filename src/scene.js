@@ -2,7 +2,7 @@
 import { INK, COLORS, CK, TOTAL, DRAW_UNIT } from './constants.js';
 import { BIG, MINI, PERSON, BACK, spr, darPal } from './sprites.js';
 import { rint, cnt } from './util.js';
-import { rackCap, rackUsed, finN, phase, prodReason, inRush, activeEvents } from './sim.js';
+import { rackCap, rackUsed, finN, phase, prodReason, inRush, activeEvents, activeAd } from './sim.js';
 import { EVENT_TYPES } from './events.js';
 
 // 絵のだるま1体＝DRAW_UNIT 個として描く（乾燥棚だけは容量に合わせて1体あたりを増やす）
@@ -167,6 +167,7 @@ function drawTV(fr) {
   const act = S.events.find(e => EVENT_TYPES[e.type].buzz && phase(e, d) === 'act');
   const ann = S.events.find(e => EVENT_TYPES[e.type].buzz && phase(e, d) === 'ann');
   if (act) { R(172, 33, 17, 18, fr % 2 ? COLORS[act.color].h : '#fff6e6'); sp(BIG, darPal(act.color), 174, 35); }
+  else if (activeAd(S, 'tvcm')) { R(172, 33, 17, 18, fr % 2 ? '#f7b7cf' : '#fbe38a'); sp(MINI, darPal('red'), 176, 41); T('CM', 180.5, 37, 6, '#d8382a'); } // 自分の店のCM
   else if (ann) { R(172, 33, 17, 18, '#fbe38a'); T('予告', 180.5, 42, 7, INK); }
   else { R(172, 33, 17, 18, '#8fb0c8'); sp(BIG, darPal('gray'), 174, 35); }
   R(192, 34, 3, 3, '#f5c742'); R(192, 40, 3, 3, '#f5c742'); R(192, 46, 3, 2, INK);

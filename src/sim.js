@@ -1,6 +1,6 @@
 // ゲームのシミュレーション本体。DOM に依存しない。
 // 状態 S を引数で受け取り、画面側への通知は hooks 経由で行う。
-import { COLORS, CK, TOTAL, DRY, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE } from './constants.js';
+import { COLORS, CK, TOTAL, DRY, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE, ADS } from './constants.js';
 import { rint, pick, yen, cnt, poisson, monthOf, dateStr } from './util.js';
 import { ROSTER, wageOf } from './roster.js';
 import { EVENT_TYPES, genEvents, demandOf, priceOf } from './events.js';
@@ -50,7 +50,7 @@ export function newGame(rng = Math.random) {
     t: 0, day: 0, cash: START_CASH, mat: START_MAT, fin: { red: START_RED, gold: 0, pink: 0, sky: 0, green: 0 }, rack: [], color: 'red', prog: 0,
     rackLv: 0, whLv: 0, staff: [], recv: [], m: 1, sup: 0, noise: 1, events: genEvents(rng), strikes: 0, lowMorale: false,
     stats: { sold: 0, missed: 0, rev: 0 }, today: { sold: 0, missed: 0, rev: 0 }, news: [], banner: '', over: false,
-    pop: 0, popStars: 1, pool: [],
+    pop: 0, popStars: 1, pool: [], ads: [],
   };
   refreshPool(S, rng);
   updateMarket(S, true);
@@ -92,6 +92,7 @@ export function normalize(S) {
   }
   if (!Array.isArray(S.events) || S.events.some(e => !EVENT_TYPES[e.type])) S.events = genEvents();
   if (!Array.isArray(S.pool)) refreshPool(S);
+  if (!Array.isArray(S.ads)) S.ads = [];
   return S;
 }
 export const isValidSave = sv => !!(sv && sv.fin && typeof sv.fin.red === 'number' && Array.isArray(sv.rack) && sv.rack.every(r => typeof r.n === 'number'));
@@ -120,7 +121,7 @@ export function updateMarket(S, first) {
 /* ---------- 需要 ---------- */
 export function lambda(S, d) {
   const mo = monthOf(d), share = inRush(d) ? SHARE.rush : SHARE.normal;
-  const base = 2.4 * QTY * MM[mo] * S.noise * popMult(S), rate = {}, mult = {}; // rate は需要（個/日）。イベントの上乗せは人気に関係しない
+  const base = 2.4 * QTY * MM[mo] * S.noise * popMult(S) * (1 + adBoost(S, d)), rate = {}, mult = {}; // rate は需要（個/日）。イベントの上乗せは人気に関係しない
   const org = {}; // 色ごとの客の国籍の重み
   for (const k of CK) {
     rate[k] = base * share[k]; mult[k] = COLORS[k].price * (inRush(d) ? RUSH.price : 1);
@@ -160,6 +161,20 @@ function arrive(S, k, n, mult, type) {
   S.today.sold += sold; S.today.rev += amt; S.stats.sold += sold; S.stats.rev += amt;
   S.today.missed += missed; S.stats.missed += missed;
   return { sold, missed, amt };
+}
+
+/* ---------- 宣伝 ---------- */
+// 効果中の宣伝 {id, until}（until は S.t の単位）
+export const activeAd = (S, id) => S.ads.find(a => a.id === id && S.t < a.until);
+export const adBoost = (S, d = S.day) => S.ads.reduce((a, ad) => a + (d < ad.until ? ADS[ad.id].boost : 0), 0);
+export const canAd = (S, id) => !activeAd(S, id) && S.cash >= ADS[id].cost && !S.over;
+// 宣伝を打つ。打てなければ null
+export function runAd(S, id) {
+  if (!canAd(S, id)) return null;
+  const A = ADS[id];
+  S.cash -= A.cost; S.pop += A.pop;
+  S.ads = S.ads.filter(a => S.t < a.until).concat({ id, until: S.t + A.days });
+  return `${A.name}を打った！人気が上がり、${A.days}日間お客さんが増える`;
 }
 
 /* ---------- ニュース・町の空気 ---------- */
@@ -251,6 +266,8 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
   S.noise = 0.7 + rng() * 0.6;
   updateMarket(S, false);
   hot = hot.concat(dayNews(S, nd));
+  for (const a of S.ads) if (a.until <= nd && a.until > nd - 1) hot.push(`${ADS[a.id].name}の効果が切れた`);
+  S.ads = S.ads.filter(a => a.until > nd);
   if (nd % CRAFT.poolEvery === 0) { refreshPool(S, rng); if (S.pool.length) hot.push('求職者が入れ替わった（投資メニューから雇える）'); }
   const stars = popStars(S);
   if (stars > S.popStars) hot.push(`人気が上がった！「${POP.names[stars - 1]}」に。客足が増える`);

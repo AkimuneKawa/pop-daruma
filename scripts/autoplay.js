@@ -1,9 +1,9 @@
 // 自動プレイでバランスを検証する。
 // 使い方: npm run autoplay [-- 試行回数]
-// 目安（難しめ）: 投資なし＝ほぼ一人前、投資あり＝一人前中心・見習いや閉店が1割前後（年商 中央値約8,000万）
+// 目安: 投資なし＝ほぼ一人前（人気は年末までにLv4〜5）、投資あり＝ほぼ一人前・年商 中央値約1億
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt } from '../src/util.js';
-import { CK, TOTAL, RENT, MAT, REVENUE_GOAL, QTY, RUSH } from '../src/constants.js';
+import { CK, TOTAL, RENT, MAT, REVENUE_GOAL, QTY, RUSH, ADS } from '../src/constants.js';
 
 const STEP = 0.01;
 
@@ -42,6 +42,11 @@ function active(S) {
   const value = c => (sim.craftRate(c) + c.skill * 0.3 * QTY) / c.wage;
   const best = sim.poolCrafts(S).sort((a, b) => value(b) - value(a))[0];
   if (best && d >= 20 && S.cash - best.fee >= (sim.monthly(S) + best.wage) * (prep ? 1 : 2)) sim.hire(S, best.id);
+  // 在庫が十分（需要の4日分以上）で資金に余裕があれば宣伝を打つ
+  const stock = sim.finN(S), demand = CK.reduce((a, c) => a + rate[c], 0);
+  for (const id of ['tvcm', 'sns', 'flyer']) {
+    if (stock > demand * 4 && S.cash - ADS[id].cost >= sim.monthly(S) * 2 && sim.canAd(S, id)) { sim.runAd(S, id); break; }
+  }
   // 素材は3日分を目安に、支払い分を残して買う
   const keep = sim.monthly(S) * (10 - S.day % 10 <= 3 ? 1 : 0.5);
   if (S.color !== 'stop' && S.mat < sim.prodRate(S) * (prep ? 6 : 3) && S.cash - sim.buyQty(S) * sim.matPrice(S) >= keep && sim.matPrice(S) <= MAT * 2) sim.buy(S);
