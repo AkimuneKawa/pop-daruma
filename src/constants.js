@@ -49,7 +49,9 @@ export const STOCK_VALUE = 1200; // 決算時の完成品1個の評価額
 // 数量
 export const SELF_RATE = 2 * QTY; // 本人の生産数（個/週）
 export const BUY_N = 500; // 1タップで仕入れる数
-export const START_MAT = 600, START_RED = 120; // 開店時の素材と完成品（あか）
+export const START_MAT = 600; // 開店時の素材
+// 開店時の完成品。全色そろえておき、客の色の割合に合わせて1週半ほど売り切れない量（上手に作れば売り逃しゼロもありうる）
+export const START_STOCK = { red: 100, gold: 30, pink: 60, sky: 50, green: 50 };
 export const RACK_BASE = 300, RACK_STEP = 200; // 乾燥棚の容量と1段階の増分（乾燥1週ぶんの生産に合わせる）
 export const WH_BASE = 1200, WH_STEP = 900; // 倉庫の容量と1段階の増分
 
@@ -83,7 +85,7 @@ export const ADS = {
 
 // 固定費・投資（家賃・給料は難易度調整で v1×QTY より高め）
 export const RENT = RENT_BY_YEAR[0]; // 1年目の家賃（月）
-export const START_CASH = 2400000;
+export const START_CASH = 1700000; // 開店資金（在庫を全色そろえたぶん少なめ）
 // 職人。名簿（roster.js）の100人から、週ごとに入れ替わる求職者を雇う
 export const CRAFT = {
   max: 6, // 同時に雇える人数

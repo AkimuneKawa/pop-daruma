@@ -1,6 +1,6 @@
 // ゲームのシミュレーション本体。DOM に依存しない。
 // 状態 S を引数で受け取り、画面側への通知は hooks 経由で行う。
-import { COLORS, CK, TOTAL, YEAR, YEARS, GROWTH, RENT_BY_YEAR, DRY, PAY_DELAY, WEEKS, MARKET_STEP, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE, ADS, MARKET_SWING, MARKET_EVENT_SCALE, TAX_RATE, ACCIDENTS, ACCIDENT_EQUIP } from './constants.js';
+import { COLORS, CK, TOTAL, YEAR, YEARS, GROWTH, RENT_BY_YEAR, DRY, PAY_DELAY, WEEKS, MARKET_STEP, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_STOCK, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE, ADS, MARKET_SWING, MARKET_EVENT_SCALE, TAX_RATE, ACCIDENTS, ACCIDENT_EQUIP } from './constants.js';
 import { rint, pick, yen, cnt, poisson, monthOf, dateStr, fullDateStr, weekOfYear, yearOf } from './util.js';
 import { ROSTER, wageOf } from './roster.js';
 import { EVENT_TYPES, genEvents, demandOf, priceOf } from './events.js';
@@ -57,7 +57,7 @@ export const activeEvents = (S, d, p = 'act') => S.events.filter(e => phase(e, d
 export const colorStopped = (S, k, d = curDay(S)) => activeEvents(S, d).some(e => EVENT_TYPES[e.type].stop?.includes(k));
 export function newGame(rng = Math.random) {
   const S = {
-    t: 0, day: 0, cash: START_CASH, mat: START_MAT, fin: { red: START_RED, gold: 0, pink: 0, sky: 0, green: 0 }, rack: [], color: 'red', prog: 0,
+    t: 0, day: 0, cash: START_CASH, mat: START_MAT, fin: { ...START_STOCK }, rack: [], color: 'red', prog: 0,
     rackLv: 0, whLv: 0, staff: [], recv: [], m: 1, sup: 0, noise: 1, events: genEvents(rng), strikes: 0, lowMorale: false,
     stats: { sold: 0, missed: 0, rev: 0 }, today: { sold: 0, missed: 0, rev: 0 }, news: [], banner: '', over: false,
     year: { sold: 0, missed: 0, rev: 0, cost: 0 }, history: [], // year＝今年の成績（cost＝経費）、history＝終わった年の成績

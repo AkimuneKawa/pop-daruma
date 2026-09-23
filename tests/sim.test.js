@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt, poisson } from '../src/util.js';
-import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP, RENT, CRAFT, ADS, MARKET_EVENT_SCALE, START_MAT, START_RED, RACK_BASE, WH_BASE, WEEKS, TOTAL } from '../src/constants.js';
+import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP, RENT, CRAFT, ADS, MARKET_EVENT_SCALE, START_MAT, START_STOCK, RACK_BASE, WH_BASE, WEEKS, TOTAL } from '../src/constants.js';
 import { migrate, weekify } from '../src/save.js';
 import { ROSTER, wageOf } from '../src/roster.js';
 import { play, passive, active } from '../scripts/autoplay.js';
@@ -11,7 +11,8 @@ describe('newGame', () => {
     const S = sim.newGame(seeded(1));
     expect(S.cash).toBe(START_CASH);
     expect(S.mat).toBe(START_MAT);
-    expect(S.fin).toEqual({ red: START_RED, gold: 0, pink: 0, sky: 0, green: 0 });
+    expect(S.fin).toEqual(START_STOCK);
+    expect(Object.values(S.fin).every(n => n > 0)).toBe(true); // 全色そろっている
     expect(sim.rackCap(S)).toBe(RACK_BASE);
     expect(sim.whCap(S)).toBe(WH_BASE);
     expect(S.sup).toBe(24 * QTY); // 開店週は桜の予告中で入荷が絞られる
@@ -55,6 +56,7 @@ describe('market', () => {
 
 describe('production & payment', () => {
   it('素材を使って棚に入り、1週で完成品になる', () => {
+    const startFin = Object.values(START_STOCK).reduce((a, b) => a + b, 0);
     const rng = seeded(3);
     const S = sim.newGame(rng);
     S.events = [];
@@ -63,9 +65,9 @@ describe('production & payment', () => {
     expect(Math.abs(S.mat - (START_MAT - QTY))).toBeLessThanOrEqual(1);
     expect(Math.abs(sim.rackUsed(S) - QTY)).toBeLessThanOrEqual(1);
     for (let i = 0; i < 125; i++) sim.step(S, 0.01, {}, rng); // t=1.75：t≦0.75 に作った分は乾いている
-    expect(S.fin.red + S.stats.sold).toBeGreaterThanOrEqual(START_RED + 1.4 * QTY);
+    expect(sim.finN(S) + S.stats.sold).toBeGreaterThanOrEqual(startFin + 1.4 * QTY);
     // 素材→棚→完成品→販売 で個数が保存される（最初の素材と完成品の合計）
-    expect(sim.finN(S) + sim.rackUsed(S) + S.mat + S.stats.sold).toBe(START_MAT + START_RED);
+    expect(sim.finN(S) + sim.rackUsed(S) + S.mat + S.stats.sold).toBe(START_MAT + startFin);
   });
   it('月末に払えなければ資金ショート', () => {
     const S = sim.newGame(seeded(1));
