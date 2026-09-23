@@ -38,6 +38,17 @@ export const BUYERS = [
 ];
 export const MEAN_BUY = BUYERS.reduce((a, b) => a + b.p * (b.min + b.max) / 2, 0); // 1人あたりの平均個数
 
+// 人気。欲しい分を全部買えた客で上がり、何も買えなかった客で下がる。
+// 通常の客足（特需を除く）は人気に応じて minMult〜maxMult 倍になる
+export const POP = {
+  max: 4500, // この値で客足が最大になる（上手なプレイで11月ごろ）
+  minMult: 0.5, maxMult: 1.45,
+  gain: { person: 1, shop: 3, trader: 8 }, // 満足した客1人あたり
+  miss: 1, // 何も買えなかった客1人あたり
+  names: ['町の小さな店', 'ご近所の評判店', '町の人気店', '行列のできる店', '日本一のだるま堂'], // ★1〜★5
+  legacy: 0.6, // 人気のない旧セーブを読み込んだときの人気（max に対する割合）
+};
+
 // 固定費・投資
 export const RENT = 360000;
 export const START_CASH = 2400000;

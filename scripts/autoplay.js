@@ -1,6 +1,6 @@
 // 自動プレイでバランスを検証する。
 // 使い方: npm run autoplay [-- 試行回数]
-// 目安: 投資なし＝一人前（年商 中央値約3,500万）、投資あり＝名工前後（年商 中央値約9,000万）、年商1億円は上手なプレイで数%
+// 目安: 投資なし＝一人前以上（年商 中央値約2,600万）、投資あり＝名工〜大名（年商 中央値約9,400万）、年商1億円は数%、人気★5は11月ごろ
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt } from '../src/util.js';
 import { CK, TOTAL, RENT, MAT, REVENUE_GOAL, QTY } from '../src/constants.js';
@@ -12,21 +12,26 @@ function passive(S) {
   if (S.mat < 6 * QTY) sim.buy(S);
 }
 
-// 投資あり：棚・倉庫・職人に投資し、特需の色に合わせて作る
+// 投資あり：在庫が何日分あるかを見て足りない色を作り、特需と年末ラッシュを先読みする。
+// 棚・倉庫・職人には支払いの余裕を残して投資する
 function active(S) {
   const d = sim.curDay(S);
-  const tv = S.events.find(e => e.type === 'tv' && (sim.phase(e, d) || sim.phase(e, d + 3)));
-  const inbound = S.events.some(e => e.type === 'inbound' && sim.phase(e, d));
-  if (tv) S.color = tv.color;
-  else if (inbound) S.color = CK.slice(1).reduce((a, k) => (S.fin[k] < S.fin[a] ? k : a), 'green');
-  else S.color = 'red';
-  // 年末ラッシュ前は棚と倉庫を優先
-  const reserve = sim.monthly(S) + RENT;
+  const ahead = Math.min(TOTAL - 1, d + 4); // 乾燥にかかる3日＋αを見越した需要
+  const { rate } = sim.lambda(S, ahead);
+  const onRack = k => S.rack.reduce((a, r) => a + (r.c === k ? r.n : 0), 0);
+  const cover = k => (S.fin[k] + onRack(k)) / Math.max(1, rate[k]); // 何日分あるか
+  const target = d >= 70 && d < 95 ? 8 : 5; // 年末ラッシュ前は多めに備蓄
+  const k = CK.reduce((a, c) => (cover(c) < cover(a) ? c : a), CK[0]);
+  S.color = d >= TOTAL - 4 || cover(k) >= target ? 'stop' : k;
+  // 支払い分を残して投資する
+  const reserve = sim.monthly(S) * 2;
   for (const it of sim.investItems(S)) {
     if (!it.done && S.cash - it.cost >= reserve && d < 90) sim.invest(S, it.id);
   }
-  if (S.mat < sim.prodRate(S) * 3 && sim.matPrice(S) <= MAT * 2) sim.buy(S);
-  else if (S.mat < 2 * QTY) sim.buy(S);
+  // 素材は3日分を目安に、支払い分を残して買う
+  const keep = sim.monthly(S) * (10 - S.day % 10 <= 3 ? 1 : 0.5);
+  if (S.color !== 'stop' && S.mat < sim.prodRate(S) * 3 && S.cash - sim.buyQty(S) * sim.matPrice(S) >= keep && sim.matPrice(S) <= MAT * 2) sim.buy(S);
+  else if (S.color !== 'stop' && S.mat < 2 * QTY && S.cash - sim.buyQty(S) * sim.matPrice(S) >= keep) sim.buy(S);
 }
 
 export function play(policy, seed) {
@@ -40,9 +45,10 @@ export function play(policy, seed) {
     const q = Math.floor(S.t * 4);
     if (q !== lastDecision) { lastDecision = q; policy(S); }
     sim.step(S, STEP, hooks, rng);
+    if (S.popStars >= 5 && S.popDay == null) S.popDay = S.day; // ★5に届いた日
     if (S.t > TOTAL + 1) break;
   }
-  return { ...sim.settle(S, bankrupt), sold: S.stats.sold, missed: S.stats.missed, strikes: S.strikes, bankrupt };
+  return { ...sim.settle(S, bankrupt), sold: S.stats.sold, missed: S.stats.missed, strikes: S.strikes, bankrupt, stars: S.popStars, popDay: S.popDay };
 }
 
 function summarize(name, runs) {
@@ -52,6 +58,9 @@ function summarize(name, runs) {
   const rev = runs.filter(r => !r.bankrupt).map(r => r.revenue).sort((a, b) => a - b);
   const q = f => yen(rev[Math.floor(f * (rev.length - 1))] ?? 0);
   console.log(`${name}  平均総資産 ${yen(avg(r => r.score))}  販売 ${cnt(avg(r => r.sold))}個  売り逃し ${cnt(avg(r => r.missed))}個  称号 ${JSON.stringify(ranks)}`);
+  const st = {}; for (const r of runs) st[r.stars] = (st[r.stars] || 0) + 1;
+  const reached = runs.filter(r => r.popDay != null).map(r => r.popDay).sort((a, b) => a - b);
+  console.log(`  最終の人気★ ${JSON.stringify(st)}／★5到達 ${reached.length}回（中央値 ${reached[reached.length >> 1] ?? '-'}日目）`);
   console.log(`  年商 中央値 ${q(.5)}／上位10% ${q(.9)}／最高 ${q(1)}／${yen(REVENUE_GOAL)}達成 ${rev.filter(x => x >= REVENUE_GOAL).length}回`);
 }
 

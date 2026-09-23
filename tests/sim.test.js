@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt, poisson } from '../src/util.js';
-import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY } from '../src/constants.js';
+import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP } from '../src/constants.js';
 import { migrate } from '../src/save.js';
 import { play, passive, active } from '../scripts/autoplay.js';
 
@@ -76,6 +76,38 @@ describe('production & payment', () => {
 });
 
 const rankMin = name => RANKS.find(r => r[1] === name)[0];
+
+describe('popularity', () => {
+  it('開店時は★1で、客足は minMult 倍', () => {
+    const S = sim.newGame(seeded(1));
+    expect(sim.popStars(S)).toBe(1);
+    expect(sim.popMult(S)).toBeCloseTo(POP.minMult);
+  });
+  it('満足した客で上がり、何も買えない客で下がる', () => {
+    const S = sim.newGame(seeded(1));
+    S.events = []; S.noise = 1;
+    S.fin = { red: 1000, green: 0, sky: 0, yellow: 0 };
+    const before = S.pop;
+    for (let i = 0; i < 100; i++) sim.step(S, 0.01, {}, seeded(i + 1)); // 1日分
+    expect(S.pop).toBeGreaterThan(before);
+    S.fin = { red: 0, green: 0, sky: 0, yellow: 0 }; S.color = 'stop';
+    const high = S.pop;
+    for (let i = 0; i < 100; i++) sim.step(S, 0.01, {}, seeded(i + 500));
+    expect(S.pop).toBeLessThan(high);
+  });
+  it('人気が最大なら通常の客足は maxMult 倍', () => {
+    const S = sim.newGame(seeded(1));
+    S.events = []; S.noise = 1;
+    const low = sim.lambda(S, 5).rate.red;
+    S.pop = POP.max;
+    expect(sim.popStars(S)).toBe(5);
+    expect(sim.lambda(S, 5).rate.red / low).toBeCloseTo(POP.maxMult / POP.minMult);
+  });
+  it('人気の無い旧セーブは legacy の割合で補う', () => {
+    const S = sim.normalize({ fin: { red: 0 } });
+    expect(S.pop).toBe(POP.max * POP.legacy);
+  });
+});
 
 describe('money', () => {
   it('金額はカンマ区切り', () => {

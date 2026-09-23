@@ -53,6 +53,7 @@ canvas.ico{width:1.35em;height:1.35em}
 .panel{flex:none;padding:0}
 .panel h3{margin:0;background:var(--mint);color:#fff6e6;border-bottom:.18rem solid var(--line);font-weight:normal;font-size:1.1rem;padding:.2rem .5rem;display:flex;align-items:center;gap:.35rem;text-shadow:.08rem .08rem 0 var(--mint2)}
 .panel h3 small{margin-left:auto;font-size:.8rem;text-shadow:none}
+.panel h3 .pop{font-size:.95rem;letter-spacing:.05em}.panel h3 .pop i{font-style:normal;color:var(--yellow);text-shadow:.08rem .08rem 0 var(--mint2)}.panel h3 .pop i.off{color:#bfe6d3;text-shadow:none}
 .pbody{display:grid;grid-template-columns:1.1fr 1fr;padding:.3rem .5rem .4rem}
 .pl{padding-right:.5rem;border-right:.14rem solid var(--line)}
 .pr{padding-left:.6rem;display:flex;flex-direction:column;justify-content:space-between}

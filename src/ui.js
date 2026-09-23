@@ -1,5 +1,5 @@
 // DOM の更新（パネル表示・モーダル・トースト）
-import { CK, TOTAL, COLORS, QTY } from './constants.js';
+import { CK, TOTAL, COLORS, QTY, POP } from './constants.js';
 import { MINI, spr, darPal, paintStatic } from './sprites.js';
 import { yen, cnt, dateStr } from './util.js';
 import * as sim from './sim.js';
@@ -30,6 +30,9 @@ export function renderUI(S, speed) {
   $('#ptag').classList.toggle('show', speed === 0 && !S.over);
   $('#banner').textContent = S.banner || '';
   $('#mood').textContent = sim.mood(S);
+  const stars = sim.popStars(S);
+  $('#pop').innerHTML = '人気 ' + [1, 2, 3, 4, 5].map(i => `<i class="${i <= stars ? '' : 'off'}">★</i>`).join('');
+  $('#pop').title = POP.names[stars - 1];
   // 生産スピードのだるまピップ
   const reason = sim.prodReason(S), r = sim.prodRate(S), filled = reason ? 0 : Math.min(6, Math.round(r / QTY));
   pipCtx.clearRect(0, 0, 54, 8);

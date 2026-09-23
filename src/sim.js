@@ -1,6 +1,6 @@
 // ゲームのシミュレーション本体。DOM に依存しない。
 // 状態 S を引数で受け取り、画面側への通知は hooks 経由で行う。
-import { COLORS, CK, TOTAL, DRY, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, STAFF, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY } from './constants.js';
+import { COLORS, CK, TOTAL, DRY, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, STAFF, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP } from './constants.js';
 import { rint, pick, yen, cnt, poisson, monthOf, dateStr } from './util.js';
 
 /* ---------- 派生値 ---------- */
@@ -19,6 +19,10 @@ export const recvTotal = S => S.recv.reduce((a, r) => a + r.amt, 0);
 export const matPrice = S => Math.round(MAT * S.m / PRICE_UNIT) * PRICE_UNIT;
 export const phase = (e, d) => (d >= e.start && d < e.start + e.len) ? 'act' : ((d >= e.start - e.ann && d < e.start) ? 'ann' : null);
 export const curDay = S => Math.min(S.day, TOTAL - 1);
+// 人気：0〜1 の割合、客足の倍率、★の数（1〜5）
+export const popRatio = S => Math.min(1, S.pop / POP.max);
+export const popMult = S => POP.minMult + (POP.maxMult - POP.minMult) * popRatio(S);
+export const popStars = S => Math.min(5, 1 + Math.floor(popRatio(S) * 5));
 
 /* ---------- 開始・セーブ互換 ---------- */
 export function genEvents(rng = Math.random) {
@@ -33,10 +37,16 @@ export function newGame(rng = Math.random) {
     t: 0, day: 0, cash: START_CASH, mat: START_MAT, fin: { red: START_RED, green: 0, sky: 0, yellow: 0 }, rack: [], color: 'red', prog: 0,
     rackLv: 0, whLv: 0, staff: [], recv: [], m: 1, sup: 0, noise: 1, events: genEvents(rng), strikes: 0, lowMorale: false,
     stats: { sold: 0, missed: 0, rev: 0 }, today: { sold: 0, missed: 0, rev: 0 }, news: [], banner: '', over: false,
+    pop: 0, popStars: 1,
   };
   updateMarket(S, true);
   S.banner = '4月1日、だるま堂 開店！素材を切らさないように';
-  S.news = [{ t: '職人が「作る色」のだるまを自動で作ります' }, { t: '12月〜1月の年末ラッシュが一番の書き入れ時です' }];
+  S.news = [{ t: '職人が「作る色」のだるまを自動で作ります' }, { t: 'お客さんの欲しいだるまを切らさず売ると、人気が上がって客足が増えます' }, { t: '12月〜1月の年末ラッシュが一番の書き入れ時です' }];
+  return S;
+}
+// 旧セーブに無いフィールドを補う
+export function normalize(S) {
+  if (S && typeof S.pop !== 'number') { S.pop = POP.max * POP.legacy; S.popStars = popStars(S); }
   return S;
 }
 export const isValidSave = sv => !!(sv && sv.fin && typeof sv.fin.red === 'number' && Array.isArray(sv.rack) && sv.rack.every(r => typeof r.n === 'number'));
@@ -69,7 +79,7 @@ export function updateMarket(S, first) {
 export function lambda(S, d) {
   const mo = monthOf(d);
   const share = (mo >= 8 && mo <= 10) ? { red: .7, green: .1, sky: .1, yellow: .1 } : { red: .45, green: .2, sky: .15, yellow: .2 };
-  const base = 2.4 * QTY * MM[mo] * S.noise, rate = {}, mult = {}; // rate は需要（個/日）
+  const base = 2.4 * QTY * MM[mo] * S.noise * popMult(S), rate = {}, mult = {}; // rate は需要（個/日）。特需の上乗せは人気に関係しない
   for (const k of CK) { rate[k] = base * share[k]; mult[k] = (mo === 8 || mo === 9) ? 1.4 : 1; }
   for (const e of S.events) {
     if (phase(e, d) !== 'act') continue;
@@ -89,9 +99,11 @@ export function rollBuyer(rng = Math.random) {
   const b = BUYERS[0];
   return { type: b.type, want: rint(b.min, b.max, rng) };
 }
-// 色 k を n 個欲しい客が来る。在庫があるだけ売れ、残りは売り逃し
-function arrive(S, k, n, mult) {
+// 色 k を n 個欲しい type の客が来る。在庫があるだけ売れ、残りは売り逃し。満足度で人気が動く
+function arrive(S, k, n, mult, type) {
   const sold = Math.min(n, S.fin[k]), missed = n - sold, amt = sold * unitPrice(mult);
+  if (sold === n) S.pop += POP.gain[type];
+  else if (sold === 0) S.pop = Math.max(0, S.pop - POP.miss);
   S.fin[k] -= sold;
   S.today.sold += sold; S.today.rev += amt; S.stats.sold += sold; S.stats.rev += amt;
   S.today.missed += missed; S.stats.missed += missed;
@@ -152,7 +164,7 @@ export function step(S, dd, hooks = {}, rng = Math.random) {
     // 需要（個）を1人あたりの平均個数で割った人数が来る
     const n = poisson(rate[k] / MEAN_BUY * dd, rng);
     for (let i = 0; i < n; i++) {
-      const b = rollBuyer(rng), r = arrive(S, k, b.want, mult[k]);
+      const b = rollBuyer(rng), r = arrive(S, k, b.want, mult[k], b.type);
       amt += r.amt;
       hooks.sale?.(k, b.type, b.want, r.sold);
     }
@@ -185,6 +197,10 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
   S.noise = 0.7 + rng() * 0.6;
   updateMarket(S, false);
   hot = hot.concat(dayNews(S, nd));
+  const stars = popStars(S);
+  if (stars > S.popStars) hot.push(`人気が上がった！「${POP.names[stars - 1]}」に。客足が増える`);
+  if (stars < S.popStars) hot.push(`品切れ続きで人気が下がった…「${POP.names[stars - 1]}」に`);
+  S.popStars = stars;
   if (!hot.length && S.m > prev + 0.01) hot.push('素材の相場がじわじわ上がっている');
   if (!hot.length && S.m < prev - 0.01) hot.push('素材の相場が落ち着いてきた');
   if (!hot.length && rng() < 0.25) hot.push(pick(FLAVOR, rng));
