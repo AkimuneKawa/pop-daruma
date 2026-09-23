@@ -11,12 +11,14 @@ describe('newGame', () => {
     const S = sim.newGame(seeded(1));
     expect(S.cash).toBe(START_CASH);
     expect(S.mat).toBe(10 * QTY);
-    expect(S.fin).toEqual({ red: 2 * QTY, green: 0, sky: 0, yellow: 0 });
+    expect(S.fin).toEqual({ red: 2 * QTY, gold: 0, pink: 0, sky: 0, green: 0 });
     expect(sim.rackCap(S)).toBe(6 * QTY);
     expect(sim.whCap(S)).toBe(20 * QTY);
-    expect(S.sup).toBe(40 * QTY);
-    expect(S.events.filter(e => e.type === 'tv')).toHaveLength(3);
-    expect(S.events.filter(e => e.type === 'inbound')).toHaveLength(2);
+    expect(S.sup).toBe(24 * QTY); // 開店日は桜の予告中で入荷が絞られる
+    expect(S.events.filter(e => e.type === 'tv' || e.type === 'sns')).toHaveLength(3);
+    expect(S.events.filter(e => e.type === 'sakura')).toHaveLength(1);
+    expect(S.events.filter(e => e.type === 'shunsetsu')).toHaveLength(1);
+    expect(S.events.filter(e => ['typhoon', 'surge', 'hormuz'].includes(e.type))).toHaveLength(2);
   });
   it('同じシードなら同じイベント', () => {
     expect(sim.newGame(seeded(7)).events).toEqual(sim.newGame(seeded(7)).events);
@@ -24,11 +26,13 @@ describe('newGame', () => {
 });
 
 describe('market', () => {
-  it('年末ラッシュ中は目標1.9・入荷12', () => {
+  it('年末商戦（11〜12月）は目標1.9・入荷12、10月後半は1.4・20', () => {
     const S = sim.newGame(seeded(1));
     S.events = [];
+    expect(sim.marketTarget(S, 75)).toEqual({ t: 1.9, cap: 12 * QTY });
     expect(sim.marketTarget(S, 85)).toEqual({ t: 1.9, cap: 12 * QTY });
-    expect(sim.marketTarget(S, 75)).toEqual({ t: 1.4, cap: 20 * QTY });
+    expect(sim.marketTarget(S, 67)).toEqual({ t: 1.4, cap: 20 * QTY });
+    expect(sim.marketTarget(S, 95)).toEqual({ t: 1, cap: 40 * QTY });
     expect(sim.marketTarget(S, 5)).toEqual({ t: 1, cap: 40 * QTY });
   });
   it('相場は上昇+0.2／下降-0.12ずつ', () => {
@@ -87,11 +91,11 @@ describe('popularity', () => {
   it('満足した客で上がり、何も買えない客で下がる', () => {
     const S = sim.newGame(seeded(1));
     S.events = []; S.noise = 1;
-    S.fin = { red: 1000, green: 0, sky: 0, yellow: 0 };
+    S.fin = { red: 1000, gold: 0, pink: 0, sky: 0, green: 0 };
     const before = S.pop;
     for (let i = 0; i < 100; i++) sim.step(S, 0.01, {}, seeded(i + 1)); // 1日分
     expect(S.pop).toBeGreaterThan(before);
-    S.fin = { red: 0, green: 0, sky: 0, yellow: 0 }; S.color = 'stop';
+    S.fin = { red: 0, gold: 0, pink: 0, sky: 0, green: 0 }; S.color = 'stop';
     const high = S.pop;
     for (let i = 0; i < 100; i++) sim.step(S, 0.01, {}, seeded(i + 500));
     expect(S.pop).toBeLessThan(high);
@@ -220,9 +224,60 @@ describe('balance (autoplay)', () => {
     expect(s).toBeGreaterThanOrEqual(rankMin('一人前') * 0.9);
     expect(s).toBeLessThan(rankMin('名工'));
   });
-  it('投資あり＝一人前〜名工の手前', () => {
+  it('投資あり＝一人前〜名工の手前で、年商は投資なしの2倍以上', () => {
     const s = avg(active, 10);
-    expect(s).toBeGreaterThanOrEqual(rankMin('一人前') * 1.4);
+    expect(s).toBeGreaterThanOrEqual(rankMin('一人前'));
     expect(s).toBeLessThan(rankMin('名工'));
+    const rev = p => Array.from({ length: 10 }, (_, i) => play(p, i + 1).revenue).reduce((a, b) => a + b, 0);
+    expect(rev(active)).toBeGreaterThan(rev(passive) * 2);
+  });
+});
+
+describe('seasons & events', () => {
+  it('年末商戦は11〜12月で、1月に客足が急に減る', () => {
+    const S = sim.newGame(seeded(1));
+    S.events = []; S.noise = 1;
+    const nov = sim.lambda(S, 75).rate.red, jan = sim.lambda(S, 95).rate.red, oct = sim.lambda(S, 62).rate.red;
+    expect(nov).toBeGreaterThan(oct * 3);
+    expect(jan).toBeLessThan(oct);
+    expect(sim.inRush(75)).toBe(true);
+    expect(sim.inRush(95)).toBe(false);
+  });
+  it('年末商戦中は求職者が来ない', () => {
+    const S = sim.newGame(seeded(1));
+    S.day = 75;
+    sim.refreshPool(S);
+    expect(S.pool).toHaveLength(0);
+  });
+  it('ホルムズ海峡封鎖中はきんが作れない', () => {
+    const S = sim.newGame(seeded(1));
+    S.events = [{ type: 'hormuz', start: 0, len: 10, ann: 1 }];
+    S.color = 'gold';
+    expect(sim.colorStopped(S, 'gold')).toBe(true);
+    expect(sim.prodReason(S)).toContain('生産停止');
+    const mat = S.mat;
+    for (let i = 0; i < 50; i++) sim.step(S, 0.01, {}, seeded(i + 1));
+    expect(S.mat).toBe(mat);
+  });
+  it('台風の間は素材が入荷しない', () => {
+    const S = sim.newGame(seeded(1));
+    S.events = [{ type: 'typhoon', start: 0, len: 3, ann: 2 }];
+    sim.updateMarket(S, true);
+    expect(S.sup).toBe(0);
+    expect(sim.buyBlockReason(S)).toBe('物流ストップ中');
+  });
+  it('春節の客は中国客', () => {
+    const S = sim.newGame(seeded(1));
+    S.events = [{ type: 'shunsetsu', start: 0, len: 6, ann: 4 }]; S.noise = 1;
+    const { org } = sim.lambda(S, 2);
+    expect(org.gold.cn).toBeGreaterThan(org.gold.jp);
+  });
+  it('4色時代のセーブはきいろをきんに置き換える', () => {
+    const S = sim.normalize({ fin: { red: 5, green: 1, sky: 2, yellow: 3 }, rack: [{ c: 'yellow', n: 4, ready: 1 }], color: 'yellow', pop: 0, staff: [],
+      events: [{ type: 'inbound', start: 6, len: 6, ann: 4 }] });
+    expect(S.fin).toEqual({ red: 5, gold: 3, pink: 0, sky: 2, green: 1 });
+    expect(S.rack[0].c).toBe('gold');
+    expect(S.color).toBe('gold');
+    expect(S.events.some(e => e.type === 'sakura')).toBe(true);
   });
 });

@@ -6,6 +6,7 @@ import * as sim from './sim.js';
 import { save as saveState, load } from './save.js';
 import { $, buildStatic, renderUI as paintUI, toast, flashNews, modal, closeModal, bindModalBackdrop } from './ui.js';
 import { initScene, drawScene, moveVisitors, addVisitor, clearVisitors } from './scene.js';
+import * as sound from './audio.js';
 
 let S = null;
 let speed = 0;
@@ -15,15 +16,18 @@ const renderUI = () => paintUI(S, speed);
 
 // シミュレーションからの通知を画面へ反映する
 const hooks = {
-  sale: (k, type, want, sold) => addVisitor(k, type, want, sold),
-  news: flashNews,
+  sale(k, type, want, sold, origin) {
+    addVisitor(k, type, want, sold, origin);
+    if (sold > 0) sound.sold(sold); else sound.soldOut();
+  },
+  news() { flashNews(); sound.news(); },
   save,
   short(short) {
-    setSpeed(0);
+    setSpeed(0); sound.short();
     modal(`<h2>資金ショート</h2><p>月末の支払い ${yen(short.cost)} のうち、${yen(short.paid)} しか払えませんでした。</p>${S.staff.length ? '<p>給料が遅れたため、来月は職人の作業スピードが半分になります。</p>' : ''}<p class="warn">資金ショート ${S.strikes}/3回。3回で閉店です。</p><button class="mbtn big" id="ok">再開する</button>`, { noClose: true });
     $('#ok').onclick = () => { closeModal(); setSpeed(1); };
   },
-  end(bankrupt) { setSpeed(0); save(); renderUI(); showEnd(bankrupt); },
+  end(bankrupt) { setSpeed(0); save(); renderUI(); sound.end(bankrupt); showEnd(bankrupt); },
 };
 
 function startNew() { S = sim.newGame(); save(); clearVisitors(); }
@@ -40,12 +44,19 @@ function showEnd(bankrupt) {
 function buy() {
   const r = sim.buy(S);
   if (!r) return;
+  sound.buy();
   save(); renderUI();
   toast(`素材を${cnt(r.n)}個 仕入れた（${yen(r.cost)}）`);
 }
 function setColor(c) { if (!S || S.over) return; S.color = c; save(); renderUI(); }
+// BGM：動いている間だけ鳴らす。年末商戦中はお祭りの曲
+function syncBgm() {
+  if (speed > 0 && S && !S.over) sound.playBgm(sim.inRush(S.day) ? 'rush' : 'normal');
+  else sound.stopBgm();
+}
 function setSpeed(s) {
   speed = s;
+  syncBgm();
   document.querySelectorAll('.spd').forEach(b => b.classList.toggle('on', +b.dataset.s === s));
   renderUI();
 }
@@ -63,11 +74,11 @@ function openInvest() {
       <h3 class="mh">今週の求職者 <small>あと${sim.nextPoolIn(S)}日で入れ替わり${full ? '／職人がいっぱいです' : ''}</small></h3>${pool}
       <p class="sub">うまさが高い職人がいると、お客さんが満足したときに人気が上がりやすくなります。素早さは作る速さです。</p>`);
     const dlg = $('#dlg');
-    dlg.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { toast(sim.invest(S, b.dataset.u)); save(); renderUI(); draw(); });
-    dlg.querySelectorAll('[data-hire]').forEach(b => b.onclick = () => { const t = sim.hire(S, +b.dataset.hire); if (t) { toast(t); save(); renderUI(); } draw(); });
+    dlg.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { toast(sim.invest(S, b.dataset.u)); sound.invest(); save(); renderUI(); draw(); });
+    dlg.querySelectorAll('[data-hire]').forEach(b => b.onclick = () => { const t = sim.hire(S, +b.dataset.hire); if (t) { toast(t); sound.hire(); save(); renderUI(); } draw(); });
     dlg.querySelectorAll('[data-fire]').forEach(b => b.onclick = () => {
       const id = +b.dataset.fire;
-      if (confirmFire !== id) { confirmFire = id; draw(); return; }
+      if (confirmFire !== id) { confirmFire = id; sound.click(); draw(); return; }
       confirmFire = null; toast(sim.fire(S, id)); save(); renderUI(); draw();
     });
   };
@@ -76,6 +87,7 @@ function openInvest() {
 function openHelp(after) {
   modal(`<h2>あそびかた</h2><div class="help"><ul>
   <li>時間は自動で流れます（1日＝約15秒、1ヶ月＝10日）。❚❚でいつでも止められます。</li>
+  <li>画面下の「音」で、BGMと効果音／効果音だけ／音なしを切り替えられます。</li>
   <li><b>作る色</b>：職人全員が選んだ色のだるまを作ります。1個につき素材1つ。乾燥棚で3日乾くと完成品になります。</li>
   <li><b>やめる</b>にすると素材を素材のまま温存できます。どの色にも使えるので、流行が読めないときの備えになります。</li>
   <li><b>販売</b>：お客さんが来て自動で売れます。ふつうのお客さんは1〜3個、土産物屋はまとめて、卸の業者は最大100個買っていきます。在庫が足りない分は売り逃し。お金が入るのは3日後です。</li>
@@ -83,7 +95,9 @@ function openHelp(after) {
   <li><b>職人</b>：投資メニューから雇えます（最大${CRAFT.max}人）。求職者は5日ごとに入れ替わります。素早さが高いほどたくさん作り、うまさが高いほど人気が上がりやすくなります。どちらも高い人ほど給料も高めです。</li>
   <li><b>素材を買う</b>：1タップで${cnt(BUY_N)}個。特需の予告が出ると相場が上がり、特需中は入荷が絞られます。</li>
   <li><b>月末</b>に家賃と給料を払います。払えないと資金ショート、3回で閉店。</li>
-  <li>12月〜1月の年末ラッシュが最大の山場。3月10日で決算です。</li>
+  <li><b>季節</b>：4月は桜の観光客でピンク・あお・みどり、2月は春節の観光客であか・きんが売れます。11〜12月の年末商戦が最大の山場ですが、素材の入荷が細り職人も雇えなくなるので、10月までに在庫と素材を仕込みましょう。年が明けると客足がぱったり減るので、売れ残りに注意。3月10日で決算です。</li>
+  <li><b>できごと</b>：テレビ特集やSNSのバズで特定の色が売れたり、台風・原材料高騰・ホルムズ海峡封鎖（きんが作れなくなる）が起きたりします。ニュースを見逃さずに。</li>
+  <li><b>きん</b>は売値が高い高級品。普段はあまり売れませんが、年末商戦と春節で人気です。</li>
   <li>腕に覚えがあれば、<b>年商${yen(REVENUE_GOAL)}</b>を目指そう。</li></ul></div>
   <button class="mbtn big" id="ok">とじる</button>`);
   $('#ok').onclick = () => { closeModal(); if (after) after(); };
@@ -110,6 +124,7 @@ function loop(now) {
   }
   uiAcc += sec;
   if (uiAcc > 0.25) { uiAcc = 0; renderUI(); }
+  if (uiAcc === 0) syncBgm(); // 年末商戦の始まり・終わりで曲を切り替える
   drawScene(now, S, speed);
   requestAnimationFrame(loop);
 }
@@ -124,6 +139,16 @@ $('#bInvest').onclick = openInvest;
 $('#bHelp').onclick = () => openHelp();
 $('#newsbar').onclick = openLog;
 $('#bTitle').onclick = () => { setSpeed(0); save(); showTitle(); };
+// 最初のタップで音を使えるようにする（ブラウザの制約）
+document.addEventListener('pointerdown', sound.unlock, { once: true });
+document.addEventListener('click', sound.unlock, { once: true });
+const soundBtn = $('#bSound');
+soundBtn.textContent = sound.MODE_LABEL[sound.getMode()];
+soundBtn.onclick = () => {
+  sound.unlock();
+  const m = sound.MODES[(sound.MODES.indexOf(sound.getMode()) + 1) % sound.MODES.length];
+  sound.setMode(m); soundBtn.textContent = sound.MODE_LABEL[m]; syncBgm(); sound.click();
+};
 $('#tNew').onclick = () => { startNew(); $('#title').classList.remove('show'); renderUI(); setSpeed(1); };
 $('#tCont').onclick = () => {
   const sv = load();
@@ -140,4 +165,4 @@ showTitle(); setSpeed(0); renderUI();
 requestAnimationFrame(loop);
 
 // 開発時のデバッグ用（本番ビルドでは除去される）
-if (import.meta.env.DEV) window.__daruma = { get S() { return S; }, sim };
+if (import.meta.env.DEV) window.__daruma = { get S() { return S; }, sim, sound };

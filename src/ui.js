@@ -52,7 +52,7 @@ export function renderUI(S, speed) {
   $('#sM').textContent = `×${S.m.toFixed(2)}${mt > S.m + 0.01 ? '↗' : mt < S.m - 0.01 ? '↘' : ''}`;
   for (const k of CK) $('#st-' + k).textContent = cnt(S.fin[k]);
   $('#sStockTot').textContent = `素材${cnt(S.mat)}`;
-  document.querySelectorAll('.cbtn').forEach(b => b.classList.toggle('on', b.dataset.c === S.color));
+  document.querySelectorAll('.cbtn').forEach(b => { b.classList.toggle('on', b.dataset.c === S.color); b.classList.toggle('off', b.dataset.c !== 'stop' && sim.colorStopped(S, b.dataset.c)); });
   const n = sim.buyQty(S), bb = $('#bBuy');
   bb.disabled = S.over || n < 1;
   $('#bBuyT').innerHTML = n > 0 ? `素材を買う ×${cnt(n)}<small>${yen(n * sim.matPrice(S))}</small>` : `素材を買う<small>${sim.buyBlockReason(S)}</small>`;

@@ -14,7 +14,7 @@ async function setWorstCase(page) {
     S.recv.push({ amt: 9999999, due: 99 });
     S.staff = [0, 1, 2, 3, 4, 5].map(id => ({ id, name: 'テスト', skill: 5, speed: 5, wage: 1075000, fee: 1290000, desc: '', look: {} }));
     S.rackLv = 8; S.whLv = 6;
-    S.mat = 12345; S.fin = { red: 23456, green: 12345, sky: 9876, yellow: 16543 };
+    S.mat = 12345; S.fin = { red: 23456, gold: 12345, pink: 9876, sky: 16543, green: 8765 };
     S.rack = [{ c: 'red', n: 9999, ready: 2 }, { c: 'sky', n: 8888, ready: 99 }];
     S.today = { sold: 12345, missed: 98765, rev: 0 };
   });
@@ -32,7 +32,7 @@ for (const vp of SIZES) for (const big of [false, true]) {
 
     // 文字そのものが枠（罫線の内側）に収まっているか。右寄せのはみ出しも拾うため Range で測る
     const clipped = await page.evaluate(() => ['#cash', '#due', '#dueAmt', '#recv', '#bBuyT', '#date', '#left',
-      '#sSold', '#sMiss', '#sWh', '#sRack', '#sM', '#sStockTot', '#st-red', '#st-green', '#st-sky', '#st-yellow']
+      '#sSold', '#sMiss', '#sWh', '#sRack', '#sM', '#sStockTot', '#st-red', '#st-gold', '#st-pink', '#st-sky', '#st-green']
       .map(s => document.querySelector(s))
       .filter(el => {
         const range = document.createRange(); range.selectNodeContents(el);

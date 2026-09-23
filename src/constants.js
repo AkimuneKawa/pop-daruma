@@ -1,16 +1,27 @@
 // バランス調整値・ゲーム定数（HANDOFF.md 第3章）
 export const INK = '#2a2320';
+// だるまの色。price は売値の倍率（きんは高級品）
 export const COLORS = {
-  red: { name: 'あか', b: '#d8382a', d: '#8f1f15', h: '#f57a62', g: '#f5c742' },
-  green: { name: 'みどり', b: '#3aae78', d: '#1f6e4a', h: '#8fdcb4', g: '#f5c742' },
-  sky: { name: 'あお', b: '#3a78d8', d: '#1f4a92', h: '#9cc2f2', g: '#f5c742' }, // キー sky はセーブ互換のため維持
-  yellow: { name: 'きいろ', b: '#f2c230', d: '#b3841a', h: '#fbe38a', g: '#e2412f' },
+  red: { name: 'あか', b: '#d8382a', d: '#8f1f15', h: '#f57a62', g: '#f5c742', price: 1 },
+  gold: { name: 'きん', b: '#e0ad2e', d: '#946a12', h: '#fbe38a', g: '#d8382a', price: 1.6 },
+  pink: { name: 'ピンク', b: '#f07aa8', d: '#b04a74', h: '#fbc3d8', g: '#f5c742', price: 1 },
+  sky: { name: 'あお', b: '#3a78d8', d: '#1f4a92', h: '#9cc2f2', g: '#f5c742', price: 1 }, // キー sky はセーブ互換のため維持
+  green: { name: 'みどり', b: '#3aae78', d: '#1f6e4a', h: '#8fdcb4', g: '#f5c742', price: 1 },
 };
 export const GRAY = { b: '#bdb2a4', d: '#8c8378', h: '#d8d0c4', g: '#a8a097' };
-export const CK = ['red', 'green', 'sky', 'yellow'];
+export const CK = ['red', 'gold', 'pink', 'sky', 'green'];
+// 客が欲しがる色の割合（通常月と年末商戦）
+export const SHARE = {
+  normal: { red: 0.4, gold: 0.08, pink: 0.2, sky: 0.16, green: 0.16 },
+  rush: { red: 0.7, gold: 0.14, pink: 0.06, sky: 0.05, green: 0.05 },
+};
 export const MONTHS = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'];
 export const TOTAL = 120, DAY_SEC = 15, DRY = 3;
-export const MM = [1.0, 0.8, 0.7, 0.8, 0.9, 0.8, 1.0, 1.3, 4.0, 4.5, 1.8, 1.2];
+// 月別の需要倍率（4月始まり）。11〜12月が年末商戦、1月は年明けで客足が急に減る
+export const MM = [1.0, 0.8, 0.7, 0.8, 0.9, 0.8, 1.2, 3.5, 4.5, 0.5, 1.0, 0.8];
+// 年末商戦（11〜12月）。売値が上がり、素材の入荷が細り、職人の求人が止まる。
+// 10月後半から素材の相場が上がり始める
+export const RUSH = { start: 70, end: 90, price: 1.4, preStart: 65 };
 
 // 規模の倍率。v1（HANDOFF.md）に比べて、数量（生産・需要・在庫・容量・仕入れ・入荷上限）と
 // 固定費（家賃・給料・投資・初期資金）を QTY 倍にし、単価（売値・素材）は据え置く。
@@ -36,6 +47,8 @@ export const BUYERS = [
   { type: 'shop', p: 0.13, min: 5, max: 30 }, // 土産物屋・小売店
   { type: 'trader', p: 0.02, min: 50, max: 100 }, // 卸の業者
 ];
+// 客の国籍。普段の客の割合（イベントで増えた客は events.js の origin で決まる）
+export const ORIGIN_BASE = { jp: 0.84, cn: 0.08, west: 0.08 };
 export const MEAN_BUY = BUYERS.reduce((a, b) => a + b.p * (b.min + b.max) / 2, 0); // 1人あたりの平均個数
 
 // 人気。欲しい分を全部買えた客で上がり、何も買えなかった客で下がる。

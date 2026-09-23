@@ -2,7 +2,8 @@
 import { INK, COLORS, CK, TOTAL, DRAW_UNIT } from './constants.js';
 import { BIG, MINI, PERSON, BACK, spr, darPal } from './sprites.js';
 import { rint, cnt } from './util.js';
-import { rackCap, rackUsed, finN, phase, prodReason } from './sim.js';
+import { rackCap, rackUsed, finN, phase, prodReason, inRush, activeEvents } from './sim.js';
+import { EVENT_TYPES } from './events.js';
 
 // 絵のだるま1体＝DRAW_UNIT 個として描く（乾燥棚だけは容量に合わせて1体あたりを増やす）
 
@@ -36,11 +37,25 @@ function resize() {
 }
 
 /* ---------- 客 ---------- */
-// 客1人。type＝person/shop/trader、want＝欲しい個数、sold＝買えた個数
-export function addVisitor(k, type, want, sold) {
+// 国籍ごとの見た目（後ろ姿でわかるように）。hair＝髪、cloth＝服
+//   日本客：黒髪・いつもの服／中国客：黒髪・赤や金の服、ときどきツアーの小旗
+//   欧米客：金髪・赤毛・茶髪、大きなリュック
+const ORIGIN_LOOK = {
+  cn: { hair: ['#1a1a1a'], cloth: ['#d8382a', '#e0ad2e', '#c8302a', '#f5c742'] },
+  west: { hair: ['#f2d27a', '#d8742a', '#b08050', '#e8c060'], cloth: ['#5a8a4a', '#3a6aa8', '#fff6e6', '#8a5a2b'] },
+};
+// 客1人。type＝person/shop/trader、want＝欲しい個数、sold＝買えた個数、origin＝jp/cn/west
+export function addVisitor(k, type, want, sold, origin = 'jp') {
   if (visitors.length >= MAX_VISITORS) return;
   const pals = type === 'trader' ? TRADER : type === 'shop' ? SHOP : CUST;
-  visitors.push({ x: W - ox + 2 + rint(0, 20), y: rint(0, 4), tx: rint(124, 218), k, type, want, sold, st: 'in', wait: 0, pal: pals[rint(0, pals.length - 1)] });
+  const pal = pals[rint(0, pals.length - 1)].slice();
+  const look = ORIGIN_LOOK[origin];
+  if (look) {
+    pal[0] = look.hair[rint(0, look.hair.length - 1)];
+    if (type === 'person') pal[1] = look.cloth[rint(0, look.cloth.length - 1)];
+  }
+  visitors.push({ x: W - ox + 2 + rint(0, 20), y: rint(0, 4), tx: rint(124, 218), k, type, want, sold, origin, st: 'in', wait: 0, pal,
+    pack: origin === 'west', flag: origin === 'cn' && rint(0, 2) === 0 });
 }
 export function clearVisitors() { visitors.length = 0; }
 export function moveVisitors(sec) {
@@ -148,8 +163,9 @@ function drawTV(fr) {
   R(172, 22, 1, 8, INK); R(171, 21, 1, 1, INK); R(192, 22, 1, 8, INK); R(193, 21, 1, 1, INK);
   R(168, 29, 30, 27, INK); R(169, 30, 28, 25, '#d8382a');
   R(171, 32, 19, 20, INK);
-  const act = S.events.find(e => e.type === 'tv' && phase(e, d) === 'act');
-  const ann = S.events.find(e => e.type === 'tv' && phase(e, d) === 'ann');
+  // テレビにはバズ（テレビ特集・SNS）の対象色を映す
+  const act = S.events.find(e => EVENT_TYPES[e.type].buzz && phase(e, d) === 'act');
+  const ann = S.events.find(e => EVENT_TYPES[e.type].buzz && phase(e, d) === 'ann');
   if (act) { R(172, 33, 17, 18, fr % 2 ? COLORS[act.color].h : '#fff6e6'); sp(BIG, darPal(act.color), 174, 35); }
   else if (ann) { R(172, 33, 17, 18, '#fbe38a'); T('予告', 180.5, 42, 7, INK); }
   else { R(172, 33, 17, 18, '#8fb0c8'); sp(BIG, darPal('gray'), 174, 35); }
@@ -211,10 +227,17 @@ function drawMaterials() {
   for (let i = 0; i < cans; i++) { const x = 76 + i * 13, y = 136; R(x, y, 11, 13, INK); R(x + 1, y + 1, 9, 11, cc[i]); R(x + 1, y + 1, 9, 2, '#fff6e6'); R(x + 1, y + 3, 9, 1, INK); }
   if (S.mat < 1) { R(80, 140, 38, 11, '#d8382a'); R(80, 140, 38, 1, INK); T('素材切れ', 99, 145.5, 7, '#fff6e6'); }
 }
+// 結果の吹き出しは国籍ごとの言葉で
+const WORDS = {
+  jp: { ok: '買った！', none: '売り切れ…' },
+  cn: { ok: '買到了！', none: '賣完了…' },
+  west: { ok: 'Nice!', none: 'Sold out…' },
+};
 function bubbleText(v) {
-  if (v.sold === 0) return ['売り切れ…', '#d8382a'];
+  const w = WORDS[v.origin] ?? WORDS.jp;
+  if (v.sold === 0) return [w.none, '#d8382a'];
   if (v.sold < v.want) return [`${v.sold}個だけ…`, '#d8382a'];
-  if (v.want === 1) return ['買った！', INK];
+  if (v.want === 1) return [w.ok, INK];
   return [v.type === 'trader' ? `${v.sold}個 仕入れ！` : `${v.sold}個！`, INK];
 }
 function drawVisitors(fr) {
@@ -222,6 +245,8 @@ function drawVisitors(fr) {
   for (const v of list) {
     const x = Math.round(v.x), walk = v.st !== 'wait', y = 142 + v.y + (walk ? fr % 2 : 0);
     sp(BACK, { K: INK, H: v.pal[0], S: '#f6c9a0', A: v.pal[1], P: v.pal[2] }, x, y, 2);
+    if (v.pack) { R(x + 4, y + 13, 12, 12, INK); R(x + 5, y + 14, 10, 10, '#c0602a'); R(x + 5, y + 18, 10, 1, '#8a3a1a'); R(x + 8, y + 20, 4, 2, '#f5c742'); } // 欧米客のリュック
+    if (v.flag) { R(x + 17, y - 10, 1, 16, '#6b4424'); R(x + 18, y - 10, 7, 5, INK); R(x + 18, y - 9, 6, 3, '#d8382a'); R(x + 20, y - 8, 1, 1, '#f5c742'); } // 中国客のツアー旗
     // 業者・小売店は買った荷物を担いで帰る
     if (v.st === 'out' && v.sold >= 5) { const w = v.type === 'trader' ? 12 : 8; R(x + 14, y + 2, w, 8, INK); R(x + 15, y + 3, w - 2, 6, '#c99558'); }
   }
@@ -275,6 +300,8 @@ export function drawScene(t, state, speed) {
   drawNoren(); drawLamps(); drawRack(fr); drawScroll(); drawQuilt(); drawMirror(); drawTV(fr); drawSign(); drawShelf();
   const working = speed > 0 && !prodReason(S);
   drawWorkers(fr, working); drawMaterials(); drawVisitors(fr);
-  if (d >= 80 && d < 100) drawBunting(['#d8382a', '#fff6e6']);
-  else if (S.events.some(e => e.type === 'inbound' && phase(e, d) === 'act')) drawBunting(['#d8382a', '#f5c742', '#5fc4a0', '#2f63d6', '#f0782a']);
+  // 旗飾り：季節イベント（桜・春節）の色、なければ年末商戦の紅白
+  const flags = activeEvents(S, d).map(e => EVENT_TYPES[e.type].flags).find(Boolean);
+  if (flags) drawBunting(flags);
+  else if (inRush(d)) drawBunting(['#d8382a', '#fff6e6']);
 }
