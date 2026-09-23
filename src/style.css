@@ -133,6 +133,21 @@ canvas.ico{width:1.35em;height:1.35em}
 .res{width:100%;border-collapse:collapse;margin:8px 0}
 .res td{padding:3px 0;border-bottom:2px dashed var(--gray)}.res td:last-child{text-align:right;white-space:nowrap;padding-left:8px}
 .rank{font-size:20px;text-align:center}
+.entry{margin:8px 0;padding:8px;border:2px dashed var(--gray);text-align:center}
+.entry label{display:block;font-size:14px;margin-bottom:6px}
+.entry input{display:block;width:100%;margin-top:4px;font:inherit;font-size:16px;padding:6px 8px;border:3px solid var(--line);background:#fff;color:var(--ink)}
+.entry .mbtn{width:100%}
+.tabs{display:flex;gap:6px;margin:6px 0}
+.tab{flex:1;font:inherit;font-size:15px;padding:6px;border:3px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.tab.on{background:var(--yellow)}
+.rank-list ol{list-style:none;margin:0;padding:0}
+.rank-list li{display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:2px dashed var(--gray);font-size:15px}
+.rank-list li.me{background:#fbe38a}
+.rank-list .no{width:2.2em;text-align:right;color:var(--muted)}
+.rank-list li:nth-child(1) .no,.rank-list li:nth-child(2) .no,.rank-list li:nth-child(3) .no{color:var(--red);font-size:17px}
+.rank-list .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank-list .nm small{margin-left:6px;font-size:12px;color:var(--muted)}
+.rank-list b{font-weight:normal;white-space:nowrap}
 .mh{margin:12px 0 2px;font-size:16px;font-weight:normal;border-bottom:3px solid var(--line);padding-bottom:2px}.mh small{font-size:12px;color:var(--muted);margin-left:6px}
 .craft .cn{display:block;font-weight:normal}.craft .cs{display:block;font-size:13px;white-space:nowrap}.craft small{display:block}
 .st{color:#e2a21a;letter-spacing:-.05em;margin-right:6px}

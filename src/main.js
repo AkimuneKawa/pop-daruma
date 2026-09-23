@@ -7,6 +7,7 @@ import { save as saveState, load } from './save.js';
 import { $, buildStatic, renderUI as paintUI, toast, flashNews, modal, closeModal, bindModalBackdrop } from './ui.js';
 import { initScene, drawScene, moveVisitors, addVisitor, clearVisitors } from './scene.js';
 import * as sound from './audio.js';
+import * as ranking from './ranking.js';
 
 let S = null;
 let speed = 0;
@@ -48,8 +49,42 @@ function showEnd(bankrupt) {
   const { stock, score, rank, revenue, years, best, goal } = sim.settle(S, bankrupt);
   modal(`<h2>${bankrupt ? '閉店…' : '決算！'}</h2><p class="sub">${bankrupt ? '資金ショートが3回続き、工房を閉じることになりました。' : '3年間おつかれさまでした。'}</p>
   <table class="res">${years.map((r, i) => `<tr><td>${i + 1}年目の年商</td><td>${yen(r)}</td></tr>`).join('')}<tr><td>3年間の売上</td><td>${yen(revenue)}</td></tr><tr><td>所持金</td><td>${yen(S.cash)}</td></tr><tr><td>予定収入</td><td>${yen(sim.recvTotal(S))}</td></tr><tr><td>在庫（完成品は1個${yen(STOCK_VALUE)}で評価）</td><td>${yen(stock)}</td></tr><tr><td>総資産</td><td>${yen(score)}</td></tr><tr><td>人気</td><td>Lv${sim.popStars(S)} ${POP.names[sim.popStars(S) - 1]}</td></tr><tr><td>販売数</td><td>${cnt(S.stats.sold)}個</td></tr><tr><td>売り逃し</td><td>${cnt(S.stats.missed)}個</td></tr></table>
-  <p class="rank">称号：${rank}</p>${bankrupt ? '' : goal ? `<p class="rank red">★ 年商${yen(REVENUE_GOAL)} 達成！ ★</p>` : `<p class="sub" style="text-align:center">目標の年商${yen(REVENUE_GOAL)}まで あと${yen(REVENUE_GOAL - best)}（いちばん良かった年）</p>`}<button class="mbtn red big" id="again">もう一度あそぶ</button>`, { noClose: true });
+  <p class="rank">称号：${rank}</p>${!bankrupt && ranking.enabled() ? `<div class="entry" id="entry">${S.submitted ? '<p class="sub">ランキングに登録ずみです</p>' : `<label>ランキングに登録<input id="rName" maxlength="12" placeholder="名前（12文字まで）" value="${esc(ranking.savedName())}"></label><button class="mbtn orange" id="rSend">登録</button>`}<p class="sub" id="rMsg"></p></div>` : ''}${bankrupt ? '' : goal ? `<p class="rank red">★ 年商${yen(REVENUE_GOAL)} 達成！ ★</p>` : `<p class="sub" style="text-align:center">目標の年商${yen(REVENUE_GOAL)}まで あと${yen(REVENUE_GOAL - best)}（いちばん良かった年）</p>`}${ranking.enabled() ? '<button class="mbtn big" id="seeRank">ランキングを見る</button>' : ''}<button class="mbtn red big" id="again">もう一度あそぶ</button>`, { noClose: true });
   $('#again').onclick = () => { startNew(); closeModal(); renderUI(); setSpeed(1); };
+  const back = () => showEnd(bankrupt);
+  if ($('#seeRank')) $('#seeRank').onclick = () => openRanking('score', back);
+  const send = $('#rSend');
+  if (send) send.onclick = async () => {
+    const name = ranking.cleanName($('#rName').value);
+    if (!name) { $('#rMsg').textContent = '名前を入れてください'; return; }
+    send.disabled = true; $('#rMsg').textContent = '登録しています…';
+    try {
+      const r = await ranking.submit({ name, score, best, revenue, title: rank });
+      S.submitted = r.id || true; save();
+      sound.levelUp();
+      $('#entry').innerHTML = `<p class="rank red">総資産 ${r.rank.score ?? '-'}位／最高の年商 ${r.rank.best_year ?? '-'}位</p>`;
+    } catch (e) {
+      send.disabled = false; $('#rMsg').textContent = e.message;
+    }
+  };
+}
+// ランキング画面。kind＝並べ方（score／best_year）、after＝とじたあとに戻る画面
+async function openRanking(kind = 'score', after) {
+  const tabs = Object.entries(ranking.KINDS).map(([k, label]) => `<button class="tab${k === kind ? ' on' : ''}" data-kind="${k}">${label}</button>`).join('');
+  const frame = body => modal(`<h2>ランキング</h2><div class="tabs">${tabs}</div><div class="rank-list">${body}</div><button class="mbtn big" id="rClose">とじる</button>`, { noClose: true });
+  const wire = () => {
+    $('#dlg').querySelectorAll('[data-kind]').forEach(b => b.onclick = () => openRanking(b.dataset.kind, after));
+    $('#rClose').onclick = () => { closeModal(); after?.(); };
+  };
+  frame('<p class="sub">読み込み中…</p>'); wire();
+  try {
+    const rows = await ranking.top(kind);
+    const mine = S.submitted;
+    const body = rows.length ? `<ol>${rows.map((r, i) => `<li class="${r.id === mine ? 'me' : ''}"><span class="no">${i + 1}</span><span class="nm">${esc(r.name)}<small>${esc(r.title)}</small></span><b>${yen(r[kind])}</b></li>`).join('')}</ol>` : '<p class="sub">まだ誰も登録していません。一番乗りを目指そう！</p>';
+    frame(body); wire();
+  } catch (e) {
+    frame(`<p class="sub">ランキングを読み込めませんでした（${esc(e.message)}）</p>`); wire();
+  }
 }
 
 /* ---------- 操作 ---------- */
@@ -187,6 +222,8 @@ $('#tCont').onclick = () => {
   clearVisitors(); $('#title').classList.remove('show'); renderUI(); setSpeed(1);
 };
 $('#tHelp').onclick = () => { $('#title').classList.remove('show'); openHelp(showTitle); };
+$('#tRank').onclick = () => { $('#title').classList.remove('show'); openRanking('score', showTitle); };
+if (!ranking.enabled()) $('#tRank').style.display = 'none';
 document.addEventListener('visibilitychange', () => { if (document.hidden && S && !S.over) { setSpeed(0); save(); } });
 
 const sv = load();

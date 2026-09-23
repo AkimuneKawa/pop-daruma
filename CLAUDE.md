@@ -27,6 +27,8 @@
 | `src/events.js` | 季節イベント・バズ・事件の定義（効果・ニュース文・町の空気・旗飾り・客の国籍）と `genEvents` |
 | `src/roster.js` | 職人名簿（100人）と月給の式 `wageOf` |
 | `src/audio.js` | BGM と効果音（Web Audio で合成。音声ファイルなし）。売れたときの「チャリーン」、年末商戦はお祭りの曲。音の設定は localStorage の `popdaruma_sound` |
+| `src/ranking.js` | ランキング（Supabase の REST API を fetch で直接呼ぶ）。登録・上位50件・順位。接続先は環境変数 `VITE_SUPABASE_URL`・`VITE_SUPABASE_ANON_KEY`（未設定ならランキングのボタンを出さない） |
+| `supabase/schema.sql` | ランキング用テーブル `scores` と権限（誰でも読めて登録だけできる）。Supabase の SQL Editor で実行する |
 | `src/save.js` | localStorage のセーブ／ロード |
 | `src/main.js` | 起動、ゲームループ、操作ダイアログの配線 |
 | `scripts/autoplay.js` | 自動プレイ（投資なし `passive`／投資あり `active`） |
@@ -58,6 +60,13 @@
 - 開店時は全色の在庫（`START_STOCK`）をそろえておく（売り逃しゼロもありうるように）
 - 人気の上がり方は厳しくしない（オーナー判断）。難易度は素材価格・家賃・給料・称号の基準で調整する
 - 見た目を変えたら `npm run e2e` を実行し、スクショを目で確認する
+
+## ランキング
+- 保存先は Supabase。テーブルは `supabase/schema.sql`。3年後の総資産（`score`）と最高の年商（`best_year`）の2つの順位をタブで切り替える。閉店したプレイは登録できない
+- バランスを大きく変えたら `constants.js` の `RANKING_VERSION` を上げる（版ごとに別のランキングになる）
+- 公開サイトの接続先は GitHub リポジトリの Variables（`VITE_SUPABASE_URL`・`VITE_SUPABASE_ANON_KEY`）。手元で試すときは `.env.local` に同じ名前で書く（git には入れない）
+- スコアはブラウザから送るので、改ざんを完全には防げない（テーブルの CHECK で明らかにおかしい値だけはじく）
+- e2e（`e2e/ranking.spec.js`）は疑似の Supabase（`page.route`）で動かす
 
 ## デプロイ
 - 公開URL：https://akimunekawa.github.io/pop-daruma/ （GitHub Pages）

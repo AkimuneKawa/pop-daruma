@@ -112,6 +112,8 @@ export const ACCIDENTS = [
   { name: '配送トラックが事故を起こした', min: 3, max: 5 },
 ];
 export const REVENUE_GOAL = 300000000; // どこかの年でこの年商を超えたら達成（上級者の目標）
+// ランキングの版。バランスを大きく変えたら上げる（版ごとに別のランキングになる）
+export const RANKING_VERSION = '2026-09';
 
 // セーブ。v1＝元の単一HTML、v2＝金額1200倍、v3＝数量1200倍、v4＝数量120倍（1日単位）、v5＝いま（1週単位・売値3,000円）
 export const SAVE_KEY = 'popdaruma_rt_v5';
