@@ -2,14 +2,14 @@
 // 使い方: npm run autoplay [-- 試行回数]
 // 目安（HANDOFF.md）: 投資なし＝一人前（販売約165個）、投資あり＝名工（販売約310個）
 import * as sim from '../src/sim.js';
-import { seeded, yen } from '../src/util.js';
-import { CK, TOTAL, RENT, MAT, REVENUE_GOAL } from '../src/constants.js';
+import { seeded, yen, cnt } from '../src/util.js';
+import { CK, TOTAL, RENT, MAT, REVENUE_GOAL, QTY } from '../src/constants.js';
 
 const STEP = 0.01;
 
 // 投資なし：あかを作り続け、素材が減ったら買い足すだけ
 function passive(S) {
-  if (S.mat < 6) sim.buy(S);
+  if (S.mat < 6 * QTY) sim.buy(S);
 }
 
 // 投資あり：棚・倉庫・職人に投資し、特需の色に合わせて作る
@@ -26,7 +26,7 @@ function active(S) {
     if (!it.done && S.cash - it.cost >= reserve && d < 90) sim.invest(S, it.id);
   }
   if (S.mat < sim.prodRate(S) * 3 && sim.matPrice(S) <= MAT * 2) sim.buy(S);
-  else if (S.mat < 2) sim.buy(S);
+  else if (S.mat < 2 * QTY) sim.buy(S);
 }
 
 export function play(policy, seed) {
@@ -51,7 +51,7 @@ function summarize(name, runs) {
   for (const r of runs) ranks[r.rank] = (ranks[r.rank] || 0) + 1;
   const rev = runs.filter(r => !r.bankrupt).map(r => r.revenue).sort((a, b) => a - b);
   const q = f => yen(rev[Math.floor(f * (rev.length - 1))] ?? 0);
-  console.log(`${name}  平均総資産 ${yen(avg(r => r.score))}  販売 ${avg(r => r.sold)}個  売り逃し ${avg(r => r.missed)}個  称号 ${JSON.stringify(ranks)}`);
+  console.log(`${name}  平均総資産 ${yen(avg(r => r.score))}  販売 ${cnt(avg(r => r.sold))}個  売り逃し ${cnt(avg(r => r.missed))}個  称号 ${JSON.stringify(ranks)}`);
   console.log(`  年商 中央値 ${q(.5)}／上位10% ${q(.9)}／最高 ${q(1)}／${yen(REVENUE_GOAL)}達成 ${rev.filter(x => x >= REVENUE_GOAL).length}回`);
 }
 

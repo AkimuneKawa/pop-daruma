@@ -1,7 +1,7 @@
 // DOM の更新（パネル表示・モーダル・トースト）
-import { CK, TOTAL, COLORS } from './constants.js';
+import { CK, TOTAL, COLORS, QTY } from './constants.js';
 import { MINI, spr, darPal, paintStatic } from './sprites.js';
-import { yen, yenShort, dateStr } from './util.js';
+import { yen, yenShort, cnt, dateStr } from './util.js';
 import * as sim from './sim.js';
 
 export const $ = s => document.querySelector(s);
@@ -27,25 +27,25 @@ export function renderUI(S, speed) {
   $('#banner').textContent = S.banner || '';
   $('#mood').textContent = sim.mood(S);
   // 生産スピードのだるまピップ
-  const reason = sim.prodReason(S), r = sim.prodRate(S), filled = reason ? 0 : Math.min(6, Math.round(r));
+  const reason = sim.prodReason(S), r = sim.prodRate(S), filled = reason ? 0 : Math.min(6, Math.round(r / QTY));
   pipCtx.clearRect(0, 0, 54, 8);
   for (let i = 0; i < 6; i++) spr(MINI, darPal(i < filled ? (S.color === 'stop' ? 'red' : S.color) : 'gray'), i * 9 + 1, 0, 1, pipCtx);
   $('#sProdTxt').textContent = reason;
   $('#prodPips').style.display = reason ? 'none' : '';
-  $('#sSold').textContent = S.today.sold + '個';
-  $('#sMiss').textContent = S.today.missed + '個';
-  $('#sWh').textContent = `${Math.max(0, sim.whFree(S))} / ${sim.whCap(S)}`;
-  const stuck = S.rack.filter(x => x.ready <= S.t).length;
-  $('#sRack').innerHTML = `${sim.rackFree(S)} / ${sim.rackCap(S)}` + (stuck ? '<small class="red" style="font-size:.7rem"> 倉庫満杯</small>' : '');
+  $('#sSold').textContent = cnt(S.today.sold) + '個';
+  $('#sMiss').textContent = cnt(S.today.missed) + '個';
+  $('#sWh').textContent = `${cnt(Math.max(0, sim.whFree(S)))} / ${cnt(sim.whCap(S))}`;
+  const stuck = S.rack.some(x => x.ready <= S.t);
+  $('#sRack').innerHTML = `${cnt(sim.rackFree(S))} / ${cnt(sim.rackCap(S))}` + (stuck ? '<small class="red" style="font-size:.7rem"> 倉庫満杯</small>' : '');
   const lv = S.m < 1.1 ? 0 : S.m < 1.5 ? 1 : 2, mt = sim.marketTarget(S, S.day).t;
   for (let i = 0; i < 3; i++) $('#mk' + i).classList.toggle('on', i === lv);
   $('#sM').textContent = `×${S.m.toFixed(2)}${mt > S.m + 0.01 ? '↗' : mt < S.m - 0.01 ? '↘' : ''}`;
-  for (const k of CK) $('#st-' + k).textContent = S.fin[k];
-  $('#sStockTot').textContent = `素材${S.mat}`;
+  for (const k of CK) $('#st-' + k).textContent = cnt(S.fin[k]);
+  $('#sStockTot').textContent = `素材${cnt(S.mat)}`;
   document.querySelectorAll('.cbtn').forEach(b => b.classList.toggle('on', b.dataset.c === S.color));
   const n = sim.buyQty(S), bb = $('#bBuy');
   bb.disabled = S.over || n < 1;
-  $('#bBuyT').innerHTML = n > 0 ? `素材を買う ×${n}<small>${yen(n * sim.matPrice(S))}</small>` : `素材を買う<small>${sim.buyBlockReason(S)}</small>`;
+  $('#bBuyT').innerHTML = n > 0 ? `素材を買う ×${cnt(n)}<small>${yen(n * sim.matPrice(S))}</small>` : `素材を買う<small>${sim.buyBlockReason(S)}</small>`;
   $('#bInvest').disabled = S.over;
 }
 

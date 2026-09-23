@@ -1,15 +1,17 @@
 // ゲームのシミュレーション本体。DOM に依存しない。
 // 状態 S を引数で受け取り、画面側への通知は hooks 経由で行う。
-import { COLORS, CK, TOTAL, DRY, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, STAFF, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL } from './constants.js';
-import { rint, pick, yen, monthOf, dateStr } from './util.js';
+import { COLORS, CK, TOTAL, DRY, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, STAFF, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP } from './constants.js';
+import { rint, pick, yen, cnt, poisson, monthOf, dateStr } from './util.js';
 
 /* ---------- 派生値 ---------- */
-export const rackCap = S => 6 + 4 * S.rackLv;
-export const whCap = S => 20 + 15 * S.whLv;
+export const rackCap = S => RACK_BASE + RACK_STEP * S.rackLv;
+export const whCap = S => WH_BASE + WH_STEP * S.whLv;
+// 乾燥棚は同じ時刻に入れた同じ色をまとめて {c, n, ready} で持つ
+export const rackUsed = S => S.rack.reduce((a, r) => a + r.n, 0);
 export const finN = S => CK.reduce((a, k) => a + S.fin[k], 0);
 export const whUsed = S => S.mat + finN(S);
 export const whFree = S => whCap(S) - whUsed(S);
-export const rackFree = S => rackCap(S) - S.rack.length;
+export const rackFree = S => rackCap(S) - rackUsed(S);
 export const staffRate = S => S.staff.reduce((a, id) => a + STAFF[id].rate, 0);
 export const prodRate = S => SELF_RATE + (S.lowMorale ? staffRate(S) / 2 : staffRate(S));
 export const monthly = S => RENT + S.staff.reduce((a, id) => a + STAFF[id].wage, 0);
@@ -28,8 +30,8 @@ export function genEvents(rng = Math.random) {
 }
 export function newGame(rng = Math.random) {
   const S = {
-    t: 0, day: 0, cash: START_CASH, mat: 10, fin: { red: 2, green: 0, sky: 0, yellow: 0 }, rack: [], color: 'red', prog: 0,
-    rackLv: 0, whLv: 0, staff: [], recv: [], m: 1, sup: 40, noise: 1, events: genEvents(rng), strikes: 0, lowMorale: false,
+    t: 0, day: 0, cash: START_CASH, mat: START_MAT, fin: { red: START_RED, green: 0, sky: 0, yellow: 0 }, rack: [], color: 'red', prog: 0,
+    rackLv: 0, whLv: 0, staff: [], recv: [], m: 1, sup: 0, noise: 1, events: genEvents(rng), strikes: 0, lowMorale: false,
     stats: { sold: 0, missed: 0, rev: 0 }, today: { sold: 0, missed: 0, rev: 0 }, news: [], banner: '', over: false,
   };
   updateMarket(S, true);
@@ -37,7 +39,7 @@ export function newGame(rng = Math.random) {
   S.news = [{ t: '職人が「作る色」のだるまを自動で作ります' }, { t: '12月〜1月の年末ラッシュが一番の書き入れ時です' }];
   return S;
 }
-export const isValidSave = sv => !!(sv && sv.fin && typeof sv.fin.red === 'number');
+export const isValidSave = sv => !!(sv && sv.fin && typeof sv.fin.red === 'number' && Array.isArray(sv.rack) && sv.rack.every(r => typeof r.n === 'number'));
 
 /* ---------- 市場 ---------- */
 export function marketTarget(S, d) {
@@ -52,7 +54,7 @@ export function marketTarget(S, d) {
       else { t = Math.max(t, 1.6); cap = Math.min(cap, 12); }
     }
   }
-  return { t, cap };
+  return { t, cap: cap * QTY }; // 入荷上限（個/日）
 }
 export function updateMarket(S, first) {
   const { t, cap } = marketTarget(S, S.day);
@@ -67,25 +69,23 @@ export function updateMarket(S, first) {
 export function lambda(S, d) {
   const mo = monthOf(d);
   const share = (mo >= 8 && mo <= 10) ? { red: .7, green: .1, sky: .1, yellow: .1 } : { red: .45, green: .2, sky: .15, yellow: .2 };
-  const base = 2.4 * MM[mo] * S.noise, rate = {}, mult = {};
+  const base = 2.4 * QTY * MM[mo] * S.noise, rate = {}, mult = {}; // rate は来客数/日
   for (const k of CK) { rate[k] = base * share[k]; mult[k] = (mo === 8 || mo === 9) ? 1.4 : 1; }
   for (const e of S.events) {
     if (phase(e, d) !== 'act') continue;
-    if (e.type === 'tv') { rate[e.color] += 5.5; mult[e.color] *= 1.5; }
-    else { rate.sky += 2; rate.yellow += 2; rate.green += 1; mult.sky *= 1.4; mult.yellow *= 1.4; mult.green *= 1.4; }
+    if (e.type === 'tv') { rate[e.color] += 5.5 * QTY; mult[e.color] *= 1.5; }
+    else { rate.sky += 2 * QTY; rate.yellow += 2 * QTY; rate.green += 1 * QTY; mult.sky *= 1.4; mult.yellow *= 1.4; mult.green *= 1.4; }
   }
   return { rate, mult };
 }
-function arrive(S, k, mult) {
-  let ok = false;
-  if (S.fin[k] > 0) {
-    S.fin[k]--;
-    const p = Math.round(BASE * mult / PRICE_UNIT) * PRICE_UNIT;
-    S.recv.push({ amt: p, due: S.t + DRY });
-    S.today.sold++; S.today.rev += p; S.stats.sold++; S.stats.rev += p;
-    ok = true;
-  } else { S.today.missed++; S.stats.missed++; }
-  return ok;
+export const unitPrice = mult => Math.round(BASE * mult / PRICE_UNIT) * PRICE_UNIT;
+// n 人の客が色 k を買いに来る。在庫があるだけ売れ、残りは売り逃し。売上額を返す
+function arrive(S, k, n, mult) {
+  const sold = Math.min(n, S.fin[k]), missed = n - sold, amt = sold * unitPrice(mult);
+  S.fin[k] -= sold;
+  S.today.sold += sold; S.today.rev += amt; S.stats.sold += sold; S.stats.rev += amt;
+  S.today.missed += missed; S.stats.missed += missed;
+  return { sold, missed, amt };
 }
 
 /* ---------- ニュース・町の空気 ---------- */
@@ -114,7 +114,7 @@ export function mood(S) {
 
 /* ---------- 時間進行 ---------- */
 // hooks（すべて省略可）:
-//   sale(k, ok)      来客1人ごと（ok=買えたか）
+//   sale(k, sold, missed)  来客があった刻みごと（色ごとの人数）
 //   news()           その日のニュースがバナーに出たとき
 //   save()           日替わりの保存タイミング
 //   short(info)      資金ショート {cost, paid}
@@ -124,17 +124,28 @@ export function step(S, dd, hooks = {}, rng = Math.random) {
   S.t += dd;
   if (S.color !== 'stop') {
     S.prog += prodRate(S) * dd;
-    while (S.prog >= 1) {
-      if (S.mat < 1 || rackFree(S) < 1) { S.prog = 1; break; }
-      S.prog -= 1; S.mat--; S.rack.push({ c: S.color, ready: S.t + DRY });
-    }
+    const whole = Math.floor(S.prog), n = Math.max(0, Math.min(whole, S.mat, rackFree(S)));
+    if (n > 0) { S.prog -= n; S.mat -= n; S.rack.push({ c: S.color, n, ready: S.t + DRY }); }
+    if (n < whole) S.prog = 1; // 素材切れ・棚満杯のときは作りかけ1個分で止める
   } else S.prog = 0;
   for (let i = 0; i < S.rack.length; i++) {
     const r = S.rack[i];
-    if (r.ready <= S.t && whFree(S) > 0) { S.fin[r.c]++; S.rack.splice(i, 1); i--; }
+    if (r.ready > S.t) continue;
+    const m = Math.min(r.n, whFree(S));
+    if (m <= 0) break;
+    S.fin[r.c] += m; r.n -= m;
+    if (r.n === 0) { S.rack.splice(i, 1); i--; }
   }
   const { rate, mult } = lambda(S, S.day);
-  for (const k of CK) if (rng() < rate[k] * dd) { const ok = arrive(S, k, mult[k]); hooks.sale?.(k, ok); }
+  let amt = 0;
+  for (const k of CK) {
+    const n = poisson(rate[k] * dd, rng);
+    if (!n) continue;
+    const r = arrive(S, k, n, mult[k]);
+    amt += r.amt;
+    hooks.sale?.(k, r.sold, r.missed);
+  }
+  if (amt) S.recv.push({ amt, due: S.t + DRY });
   let got = 0;
   S.recv = S.recv.filter(r => { if (r.due <= S.t) { got += r.amt; return false; } return true; });
   S.cash += got;
@@ -144,7 +155,7 @@ export function step(S, dd, hooks = {}, rng = Math.random) {
 export function newDay(S, nd, hooks = {}, rng = Math.random) {
   const td = S.today;
   S.day = nd;
-  const lines = [`${dateStr(nd - 1)}：販売${td.sold}個 ${yen(td.rev)}${td.missed ? `／売り逃し${td.missed}個` : ''}`];
+  const lines = [`${dateStr(nd - 1)}：販売${cnt(td.sold)}個 ${yen(td.rev)}${td.missed ? `／売り逃し${cnt(td.missed)}個` : ''}`];
   S.today = { sold: 0, missed: 0, rev: 0 };
   let short = null, hot = [];
   if (nd % 10 === 0) {
@@ -192,12 +203,12 @@ export function prodReason(S) {
 // 投資メニューの項目。done が空文字なら購入可能な状態
 export function investItems(S) {
   const items = [
-    { id: 'rack', name: '乾燥棚を増やす', sub: `+4枠（いま${rackCap(S)}枠）`, cost: RACK_UP[S.rackLv], done: S.rackLv >= 3 ? '最大' : '' },
-    { id: 'wh', name: '倉庫を広げる', sub: `+15（いま${whCap(S)}）`, cost: WH_UP[S.whLv], done: S.whLv >= 3 ? '最大' : '' },
+    { id: 'rack', name: '乾燥棚を増やす', sub: `+${cnt(RACK_STEP)}個（いま${cnt(rackCap(S))}個）`, cost: RACK_UP[S.rackLv], done: S.rackLv >= 3 ? '最大' : '' },
+    { id: 'wh', name: '倉庫を広げる', sub: `+${cnt(WH_STEP)}個（いま${cnt(whCap(S))}個）`, cost: WH_UP[S.whLv], done: S.whLv >= 3 ? '最大' : '' },
   ];
   for (const id of ['tatsu', 'hana']) {
     const s = STAFF[id];
-    items.push({ id, name: `職人 ${s.name} を雇う`, sub: `${s.desc}。月給${yen(s.wage)}`, cost: s.fee, done: S.staff.includes(id) ? '雇用中' : '' });
+    items.push({ id, name: `職人 ${s.name} を雇う`, sub: `${s.desc}。生産+${cnt(s.rate)}個/日。月給${yen(s.wage)}`, cost: s.fee, done: S.staff.includes(id) ? '雇用中' : '' });
   }
   return items;
 }

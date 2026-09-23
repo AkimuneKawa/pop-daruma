@@ -11,11 +11,30 @@ export function yen(n) {
   const s = (oku ? f(oku) + '億' : '') + (man ? f(man) + '万' : '') + (rest || (!oku && !man) ? f(rest) : '');
   return (v < 0 ? '-' : '') + s + '円';
 }
-// 狭い欄用：1億以上は「12.34億円」（小数2桁で切り捨て）、それ未満は yen と同じ
+// 狭い欄用：1億以上は「12.34億円」、1万以上は「2,398万円」、それ未満は「5,210円」（いずれも切り捨て）
 export function yenShort(n) {
-  const v = Math.round(n), a = Math.abs(v);
-  if (a < 1e8) return yen(v);
-  return (v < 0 ? '-' : '') + Math.floor(a / 1e6) / 100 + '億円';
+  const v = Math.round(n), a = Math.abs(v), sign = v < 0 ? '-' : '';
+  if (a >= 1e8) return sign + Math.floor(a / 1e6) / 100 + '億円';
+  if (a >= 1e4) return sign + Math.floor(a / 1e4).toLocaleString('ja-JP') + '万円';
+  return yen(v);
+}
+// 個数を「7,200」「2.4万」の形にする（1万以上は小数1桁で切り捨て）
+export function cnt(n) {
+  const v = Math.round(n);
+  if (Math.abs(v) < 1e4) return v.toLocaleString('ja-JP');
+  return Math.trunc(v / 1e3) / 10 + '万';
+}
+// 平均 lam のポアソン乱数。大きい lam は正規近似
+export function poisson(lam, rng = Math.random) {
+  if (lam <= 0) return 0;
+  if (lam < 30) {
+    const L = Math.exp(-lam);
+    let k = 0, p = rng();
+    while (p > L) { k++; p *= rng(); }
+    return k;
+  }
+  const g = Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng());
+  return Math.max(0, Math.round(lam + Math.sqrt(lam) * g));
 }
 export const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 export const monthOf = d => Math.min(11, Math.floor(d / 10));

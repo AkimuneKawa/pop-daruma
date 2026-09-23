@@ -1,7 +1,7 @@
 // 起動・ゲームループ・プレイヤー操作の配線
 import './style.css';
-import { DAY_SEC, STOCK_VALUE, REVENUE_GOAL } from './constants.js';
-import { yen, esc } from './util.js';
+import { DAY_SEC, STOCK_VALUE, REVENUE_GOAL, QTY, BUY_N } from './constants.js';
+import { yen, cnt, esc } from './util.js';
 import * as sim from './sim.js';
 import { save as saveState, load } from './save.js';
 import { $, buildStatic, renderUI as paintUI, toast, flashNews, modal, closeModal, bindModalBackdrop } from './ui.js';
@@ -15,7 +15,11 @@ const renderUI = () => paintUI(S, speed);
 
 // シミュレーションからの通知を画面へ反映する
 const hooks = {
-  sale: (k, ok) => addVisitor(k, ok),
+  // 画面に歩いてくる客は QTY 人に1人の割合で描く（買えたかどうかは売れた割合で決める）
+  sale(k, sold, missed) {
+    const n = sold + missed;
+    if (Math.random() < n / QTY) addVisitor(k, Math.random() < sold / n);
+  },
   news: flashNews,
   save,
   short(short) {
@@ -31,7 +35,7 @@ function startNew() { S = sim.newGame(); save(); clearVisitors(); }
 function showEnd(bankrupt) {
   const { stock, score, rank, revenue, goal } = sim.settle(S, bankrupt);
   modal(`<h2>${bankrupt ? '閉店…' : '決算！'}</h2><p class="sub">${bankrupt ? '資金ショートが3回続き、工房を閉じることになりました。' : '1年間おつかれさまでした。'}</p>
-  <table class="res"><tr><td>年商（1年の売上）</td><td>${yen(revenue)}</td></tr><tr><td>所持金</td><td>${yen(S.cash)}</td></tr><tr><td>予定収入</td><td>${yen(sim.recvTotal(S))}</td></tr><tr><td>在庫（完成品は1個${yen(STOCK_VALUE)}で評価）</td><td>${yen(stock)}</td></tr><tr><td>総資産</td><td>${yen(score)}</td></tr><tr><td>販売数</td><td>${S.stats.sold}個</td></tr><tr><td>売り逃し</td><td>${S.stats.missed}個</td></tr></table>
+  <table class="res"><tr><td>年商（1年の売上）</td><td>${yen(revenue)}</td></tr><tr><td>所持金</td><td>${yen(S.cash)}</td></tr><tr><td>予定収入</td><td>${yen(sim.recvTotal(S))}</td></tr><tr><td>在庫（完成品は1個${yen(STOCK_VALUE)}で評価）</td><td>${yen(stock)}</td></tr><tr><td>総資産</td><td>${yen(score)}</td></tr><tr><td>販売数</td><td>${cnt(S.stats.sold)}個</td></tr><tr><td>売り逃し</td><td>${cnt(S.stats.missed)}個</td></tr></table>
   <p class="rank">称号：${rank}</p>${bankrupt ? '' : goal ? `<p class="rank red">★ 年商${yen(REVENUE_GOAL)} 達成！ ★</p>` : `<p class="sub" style="text-align:center">目標の年商${yen(REVENUE_GOAL)}まで あと${yen(REVENUE_GOAL - revenue)}</p>`}<button class="mbtn red big" id="again">もう一度あそぶ</button>`, { noClose: true });
   $('#again').onclick = () => { startNew(); closeModal(); renderUI(); setSpeed(1); };
 }
@@ -41,7 +45,7 @@ function buy() {
   const r = sim.buy(S);
   if (!r) return;
   save(); renderUI();
-  toast(`素材を${r.n}個 仕入れた（${yen(r.cost)}）`);
+  toast(`素材を${cnt(r.n)}個 仕入れた（${yen(r.cost)}）`);
 }
 function setColor(c) { if (!S || S.over) return; S.color = c; save(); renderUI(); }
 function setSpeed(s) {
@@ -66,7 +70,7 @@ function openHelp(after) {
   <li><b>作る色</b>：職人全員が選んだ色のだるまを作ります。1個につき素材1つ。乾燥棚で3日乾くと完成品になります。</li>
   <li><b>やめる</b>にすると素材を素材のまま温存できます。どの色にも使えるので、流行が読めないときの備えになります。</li>
   <li><b>販売</b>：お客さんが来て自動で売れます。在庫がない色は売り逃し。お金が入るのは3日後です。</li>
-  <li><b>素材を買う</b>：1タップで10個。特需の予告が出ると相場が上がり、特需中は入荷が絞られます。</li>
+  <li><b>素材を買う</b>：1タップで${cnt(BUY_N)}個。特需の予告が出ると相場が上がり、特需中は入荷が絞られます。</li>
   <li><b>月末</b>に家賃と給料を払います。払えないと資金ショート、3回で閉店。</li>
   <li>12月〜1月の年末ラッシュが最大の山場。3月10日で決算です。</li>
   <li>腕に覚えがあれば、<b>年商${yen(REVENUE_GOAL)}</b>を目指そう。</li></ul></div>

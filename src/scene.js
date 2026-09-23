@@ -1,8 +1,10 @@
 // 工房シーンの canvas 描画（基準 256x176 の論理座標、下揃え）
-import { INK, COLORS, CK, TOTAL } from './constants.js';
+import { INK, COLORS, CK, TOTAL, QTY } from './constants.js';
 import { BIG, MINI, PERSON, BACK, spr, darPal } from './sprites.js';
-import { rint } from './util.js';
-import { rackCap, phase, prodReason } from './sim.js';
+import { rint, cnt } from './util.js';
+import { rackCap, rackUsed, finN, phase, prodReason } from './sim.js';
+
+// 絵のだるま1体＝QTY個（v1 の1個）として描く
 
 const BW = 256, BH = 176, FLOOR = 130;
 const CUST = [['#2f3f8a','#2f63d6','#fff6e6'],['#5a3a22','#f5c742','#d8382a'],['#3a2a20','#3aae78','#fff6e6'],['#9a9a9a','#8a5a2b','#fff6e6'],['#2a1a14','#f7b7cf','#fff6e6']];
@@ -87,18 +89,20 @@ function drawRack(fr) {
   R(x0, y0 - 1, 54, 2, '#b7773a'); R(x0, y0 - 2, 54, 1, INK);
   R(x0, y0, 3, 92, '#7a4a22'); R(x0 + 51, y0, 3, 92, '#7a4a22');
   for (let r = 0; r < 6; r++) { const py = y0 + 14 + r * 15; R(x0, py, 54, 2, '#b7773a'); R(x0, py + 2, 54, 1, '#7a4a22'); }
-  const cap = rackCap(S);
+  const slots = rackCap(S) / QTY, used = rackUsed(S);
+  // 枠 s には「s*QTY 個目」が入っている束を描く
+  const batchAt = u => { let acc = 0; for (const b of S.rack) { acc += b.n; if (u < acc) return b; } return null; };
   for (let s = 0; s < 18; s++) {
     const r = Math.floor(s / 3), c = s % 3, x = x0 + 5 + c * 16, y = y0 + r * 15;
-    if (s >= cap) { R(x + 3, y + 6, 8, 6, '#e2cfa3'); R(x + 3, y + 6, 8, 1, '#cdb585'); continue; }
-    const it = S.rack[s];
+    if (s >= slots) { R(x + 3, y + 6, 8, 6, '#e2cfa3'); R(x + 3, y + 6, 8, 1, '#cdb585'); continue; }
+    const it = s * QTY < used ? batchAt(s * QTY) : null;
     if (!it) continue;
     sp(BIG, darPal(it.c), x, y);
     if (it.ready > S.t) { const ph = (fr + s) % 3; circ(x + 14, y + 5 - ph, 2, '#ffffff'); circ(x + 12, y + 3 - ph, 1, '#ffffff'); }
     else if ((fr + s) % 2) { R(x + 6, y - 3, 2, 5, '#e2412f'); }
   }
   R(4, 119, 52, 10, INK); R(5, 120, 50, 8, '#fbf1dc');
-  T(`乾燥中 ${S.rack.length}/${cap}`, 30, 124.5, 7, INK);
+  T(`乾燥 ${cnt(used)}個`, 30, 124.5, 7, INK);
 }
 function drawScroll() {
   R(62, 24, 20, 2, '#6b4424'); R(71, 20, 2, 4, INK);
@@ -150,10 +154,10 @@ function drawShelf() {
   T('だるま堂', cx, top - 4, 8, INK);
   R(x0 + 3, top + 2, x1 - x0 - 6, 50, '#e8dcc6');
   const list = [];
-  for (const k of CK) for (let i = 0; i < S.fin[k]; i++) list.push(k);
+  for (const k of CK) for (let i = 0; i < Math.ceil(S.fin[k] / QTY) && list.length < 10; i++) list.push(k);
   for (let r = 0; r < 3; r++) { R(x0 + 3, top + 17 + r * 16, x1 - x0 - 6, 2, '#fbf7ef'); R(x0 + 3, top + 19 + r * 16, x1 - x0 - 6, 1, '#cdbfa5'); }
   for (let i = 0; i < Math.min(9, list.length); i++) { const r = Math.floor(i / 3), c = i % 3; sp(BIG, darPal(list[i]), x0 + 5 + c * 16, top + 3 + r * 16); }
-  if (list.length > 9) { R(x1 - 16, top + 2, 13, 8, '#d8382a'); T('+' + (list.length - 9), x1 - 9.5, top + 6, 6, '#fff6e6'); }
+  if (list.length > 9) { R(x1 - 25, top + 2, 22, 8, '#d8382a'); T(cnt(finN(S)), x1 - 14, top + 6, 6, '#fff6e6'); }
 }
 function drawWorkers(fr, working) {
   const P0 = { K: INK, H: '#2a1a14', R: '#fff6e6', S: '#f6c9a0', A: '#2f63d6', P: '#fff6e6' };
@@ -176,10 +180,10 @@ function drawWorkers(fr, working) {
   R(160, 92, 6, 10, INK); R(161, 93, 4, 9, '#6b4424'); R(161, 88, 1, 5, '#b7773a'); R(163, 87, 1, 6, '#b7773a'); R(162, 89, 1, 4, '#d8382a');
 }
 function drawMaterials() {
-  const boxes = Math.min(4, Math.ceil(S.mat / 8));
+  const boxes = Math.min(4, Math.ceil(S.mat / (8 * QTY)));
   const pos = [[0, 152], [24, 152], [48, 152], [10, 136]];
   for (let i = 0; i < boxes; i++) { const [x, y] = pos[i]; R(x, y, 23, 17, INK); R(x + 1, y + 1, 21, 15, '#c99558'); R(x + 1, y + 6, 21, 1, '#a8743e'); R(x + 10, y + 1, 3, 5, '#a8743e'); T('だるま', x + 11.5, y + 11.5, 6, '#5a3a1e'); }
-  const cans = Math.min(4, Math.ceil(S.mat / 4));
+  const cans = Math.min(4, Math.ceil(S.mat / (4 * QTY)));
   const cc = ['#d8382a', '#3aae78', '#2f63d6', '#f5c742'];
   for (let i = 0; i < cans; i++) { const x = 76 + i * 13, y = 136; R(x, y, 11, 13, INK); R(x + 1, y + 1, 9, 11, cc[i]); R(x + 1, y + 1, 9, 2, '#fff6e6'); R(x + 1, y + 3, 9, 1, INK); }
   if (S.mat < 1) { R(80, 140, 38, 11, '#d8382a'); R(80, 140, 38, 1, INK); T('素材切れ', 99, 145.5, 7, '#fff6e6'); }
