@@ -35,3 +35,7 @@
 - 色キー `sky` は表示名が「あお」でもセーブ互換のため変えない
 - バランスを変えたら `npm run autoplay` で「投資なし＝一人前（販売約165個）」「投資あり＝名工前後」を確認する
 - 見た目を変えたら `npm run e2e` を実行し、スクショを目で確認する
+
+## デプロイ
+- 公開URL：https://akimunekawa.github.io/pop-daruma/ （GitHub Pages）
+- `main` に push すると `.github/workflows/deploy.yml` がテスト→ビルド→公開まで自動で行う。テストが落ちたら公開されない
