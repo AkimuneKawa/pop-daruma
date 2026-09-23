@@ -12,10 +12,11 @@ export const MONTHS = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', 
 export const TOTAL = 120, DAY_SEC = 15, DRY = 3;
 export const MM = [1.0, 0.8, 0.7, 0.8, 0.9, 0.8, 1.0, 1.3, 4.0, 4.5, 1.8, 1.2];
 
-// 規模の倍率。v1（HANDOFF.md）に比べて、数量（生産・客・在庫・容量・仕入れ）と
+// 規模の倍率。v1（HANDOFF.md）に比べて、数量（生産・需要・在庫・容量・仕入れ・入荷上限）と
 // 固定費（家賃・給料・投資・初期資金）を QTY 倍にし、単価（売値・素材）は据え置く。
-// 売上＝単価×数量なので、比率は v1 と同じままで年商が QTY 倍になる（上手なプレイで10億円）
-export const QTY = 1200;
+// 売上＝単価×数量なので、比率は v1 と同じままで年商が QTY 倍になる（上手なプレイで1億円）
+export const QTY = 120;
+export const DRAW_UNIT = 10; // 工房シーンのだるま1体が表す個数（乾燥棚は容量に応じて増える）
 
 // 単価（1個あたり。v1 と同じ）
 export const BASE = 1500, MAT = 350;
@@ -29,19 +30,32 @@ export const START_MAT = 10 * QTY, START_RED = 2 * QTY;
 export const RACK_BASE = 6 * QTY, RACK_STEP = 4 * QTY; // 乾燥棚の容量と1段階の増分
 export const WH_BASE = 20 * QTY, WH_STEP = 15 * QTY; // 倉庫の容量と1段階の増分
 
-// 固定費・投資
-export const RENT = 3600000;
-export const START_CASH = 24000000;
-export const STAFF = {
-  tatsu: { name: 'タツ', desc: '作業が速いベテラン', fee: 6000000, wage: 4800000, rate: 2.5 * QTY },
-  hana: { name: 'ハナ', desc: '堅実な職人', fee: 6000000, wage: 4800000, rate: 1.5 * QTY },
-};
-export const RACK_UP = [9600000, 14400000, 19200000], WH_UP = [6000000, 9600000, 14400000];
-// 総資産による称号（上から判定）
-export const RANKS = [[480000000, 'だるま大名'], [240000000, '名工'], [96000000, '一人前'], [0, '見習い']];
-export const REVENUE_GOAL = 1000000000;
+// 客の種類。p＝割合、min〜max＝1人が欲しがる個数。在庫が足りなければあるだけ買い、残りは売り逃し
+export const BUYERS = [
+  { type: 'person', p: 0.85, min: 1, max: 3 }, // ふつうのお客さん
+  { type: 'shop', p: 0.13, min: 5, max: 30 }, // 土産物屋・小売店
+  { type: 'trader', p: 0.02, min: 50, max: 100 }, // 卸の業者
+];
+export const MEAN_BUY = BUYERS.reduce((a, b) => a + b.p * (b.min + b.max) / 2, 0); // 1人あたりの平均個数
 
-// セーブ。v1＝元の単一HTML、v2＝金額1200倍の版、v3＝いま（数量1200倍）
-export const SAVE_KEY = 'popdaruma_rt_v3';
-export const OLD_SAVE_KEYS = { v2: 'popdaruma_rt_v2', v1: 'popdaruma_rt_v1' };
+// 固定費・投資
+export const RENT = 360000;
+export const START_CASH = 2400000;
+export const STAFF = {
+  tatsu: { name: 'タツ', desc: '作業が速いベテラン', fee: 600000, wage: 480000, rate: 2.5 * QTY },
+  hana: { name: 'ハナ', desc: '堅実な職人', fee: 600000, wage: 480000, rate: 1.5 * QTY },
+};
+export const RACK_UP = [960000, 1440000, 1920000], WH_UP = [600000, 960000, 1440000];
+// 総資産による称号（上から判定）
+export const RANKS = [[48000000, 'だるま大名'], [24000000, '名工'], [9600000, '一人前'], [0, '見習い']];
+export const REVENUE_GOAL = 100000000;
+
+// セーブ。v1＝元の単一HTML、v2＝金額1200倍、v3＝数量1200倍、v4＝いま（数量120倍・客は1人ずつ）
+export const SAVE_KEY = 'popdaruma_rt_v4';
+// 旧セーブの変換倍率：数量×qty、金額×money、乾燥棚が1個ずつ（束でない）なら batch=false
+export const OLD_SAVES = [
+  { key: 'popdaruma_rt_v3', qty: QTY / 1200, money: QTY / 1200, batch: true },
+  { key: 'popdaruma_rt_v2', qty: QTY, money: QTY / 1200, batch: false },
+  { key: 'popdaruma_rt_v1', qty: QTY, money: QTY, batch: false },
+];
 export const FLAVOR = ['常連のおばあちゃんが赤だるまを褒めてくれた', '隣の駄菓子屋からラムネの差し入れ', 'ラジオから昭和歌謡が流れている', '今日もいい天気。筆がよくのる', '近所の子どもがだるまを数えに来た'];

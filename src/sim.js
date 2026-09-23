@@ -1,6 +1,6 @@
 // ゲームのシミュレーション本体。DOM に依存しない。
 // 状態 S を引数で受け取り、画面側への通知は hooks 経由で行う。
-import { COLORS, CK, TOTAL, DRY, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, STAFF, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP } from './constants.js';
+import { COLORS, CK, TOTAL, DRY, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, STAFF, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_RED, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY } from './constants.js';
 import { rint, pick, yen, cnt, poisson, monthOf, dateStr } from './util.js';
 
 /* ---------- 派生値 ---------- */
@@ -69,7 +69,7 @@ export function updateMarket(S, first) {
 export function lambda(S, d) {
   const mo = monthOf(d);
   const share = (mo >= 8 && mo <= 10) ? { red: .7, green: .1, sky: .1, yellow: .1 } : { red: .45, green: .2, sky: .15, yellow: .2 };
-  const base = 2.4 * QTY * MM[mo] * S.noise, rate = {}, mult = {}; // rate は来客数/日
+  const base = 2.4 * QTY * MM[mo] * S.noise, rate = {}, mult = {}; // rate は需要（個/日）
   for (const k of CK) { rate[k] = base * share[k]; mult[k] = (mo === 8 || mo === 9) ? 1.4 : 1; }
   for (const e of S.events) {
     if (phase(e, d) !== 'act') continue;
@@ -79,7 +79,17 @@ export function lambda(S, d) {
   return { rate, mult };
 }
 export const unitPrice = mult => Math.round(BASE * mult / PRICE_UNIT) * PRICE_UNIT;
-// n 人の客が色 k を買いに来る。在庫があるだけ売れ、残りは売り逃し。売上額を返す
+// 客1人が欲しがる個数と種類を決める
+export function rollBuyer(rng = Math.random) {
+  let x = rng();
+  for (const b of BUYERS) {
+    if (x < b.p) return { type: b.type, want: rint(b.min, b.max, rng) };
+    x -= b.p;
+  }
+  const b = BUYERS[0];
+  return { type: b.type, want: rint(b.min, b.max, rng) };
+}
+// 色 k を n 個欲しい客が来る。在庫があるだけ売れ、残りは売り逃し
 function arrive(S, k, n, mult) {
   const sold = Math.min(n, S.fin[k]), missed = n - sold, amt = sold * unitPrice(mult);
   S.fin[k] -= sold;
@@ -114,7 +124,7 @@ export function mood(S) {
 
 /* ---------- 時間進行 ---------- */
 // hooks（すべて省略可）:
-//   sale(k, sold, missed)  来客があった刻みごと（色ごとの人数）
+//   sale(k, type, want, sold)  客1人ごと（type＝客の種類、want＝欲しい個数、sold＝買えた個数）
 //   news()           その日のニュースがバナーに出たとき
 //   save()           日替わりの保存タイミング
 //   short(info)      資金ショート {cost, paid}
@@ -139,11 +149,13 @@ export function step(S, dd, hooks = {}, rng = Math.random) {
   const { rate, mult } = lambda(S, S.day);
   let amt = 0;
   for (const k of CK) {
-    const n = poisson(rate[k] * dd, rng);
-    if (!n) continue;
-    const r = arrive(S, k, n, mult[k]);
-    amt += r.amt;
-    hooks.sale?.(k, r.sold, r.missed);
+    // 需要（個）を1人あたりの平均個数で割った人数が来る
+    const n = poisson(rate[k] / MEAN_BUY * dd, rng);
+    for (let i = 0; i < n; i++) {
+      const b = rollBuyer(rng), r = arrive(S, k, b.want, mult[k]);
+      amt += r.amt;
+      hooks.sale?.(k, b.type, b.want, r.sold);
+    }
   }
   if (amt) S.recv.push({ amt, due: S.t + DRY });
   let got = 0;

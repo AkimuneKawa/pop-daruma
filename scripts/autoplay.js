@@ -1,6 +1,6 @@
 // 自動プレイでバランスを検証する。
 // 使い方: npm run autoplay [-- 試行回数]
-// 目安（HANDOFF.md）: 投資なし＝一人前（販売約165個）、投資あり＝名工（販売約310個）
+// 目安: 投資なし＝一人前（年商 中央値約3,500万）、投資あり＝名工前後（年商 中央値約9,000万）、年商1億円は上手なプレイで数%
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt } from '../src/util.js';
 import { CK, TOTAL, RENT, MAT, REVENUE_GOAL, QTY } from '../src/constants.js';

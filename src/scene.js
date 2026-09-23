@@ -1,13 +1,17 @@
 // 工房シーンの canvas 描画（基準 256x176 の論理座標、下揃え）
-import { INK, COLORS, CK, TOTAL, QTY } from './constants.js';
+import { INK, COLORS, CK, TOTAL, DRAW_UNIT } from './constants.js';
 import { BIG, MINI, PERSON, BACK, spr, darPal } from './sprites.js';
 import { rint, cnt } from './util.js';
 import { rackCap, rackUsed, finN, phase, prodReason } from './sim.js';
 
-// 絵のだるま1体＝QTY個（v1 の1個）として描く
+// 絵のだるま1体＝DRAW_UNIT 個として描く（乾燥棚だけは容量に合わせて1体あたりを増やす）
 
 const BW = 256, BH = 176, FLOOR = 130;
 const CUST = [['#2f3f8a','#2f63d6','#fff6e6'],['#5a3a22','#f5c742','#d8382a'],['#3a2a20','#3aae78','#fff6e6'],['#9a9a9a','#8a5a2b','#fff6e6'],['#2a1a14','#f7b7cf','#fff6e6']];
+const SHOP = [['#2a1a14','#d8382a','#fff6e6'],['#5a3a22','#2f63d6','#fff6e6']]; // 小売店：はっぴ
+const TRADER = [['#2a1a14','#3a3a4a','#2a2a3a'],['#6b6358','#3a3a4a','#2a2a3a']]; // 業者：背広
+const MAX_VISITORS = 24, WALK = 110, WAIT = 0.6; // 画面に出す客の上限、歩く速さ(px/秒)、店先で止まる秒数
+const RACK_SPOTS = 72; // 乾燥棚に並べられる小さいだるまの数（6段×奥と手前6体ずつ）
 const QC = ['#f4a6a0','#f5c742','#8fd6b4','#9cc7ef','#f0782a','#fbe38a','#5cc4d8','#f7b7cf','#d8382a','#3aae78'];
 
 let cv, ctx, stage;
@@ -32,18 +36,22 @@ function resize() {
 }
 
 /* ---------- 客 ---------- */
-export function addVisitor(k, ok) {
-  if (visitors.length < 6) visitors.push({ x: 262, tx: rint(124, 218), k, ok, st: 'in', wait: 0, pal: CUST[rint(0, CUST.length - 1)] });
+// 客1人。type＝person/shop/trader、want＝欲しい個数、sold＝買えた個数
+export function addVisitor(k, type, want, sold) {
+  if (visitors.length >= MAX_VISITORS) return;
+  const pals = type === 'trader' ? TRADER : type === 'shop' ? SHOP : CUST;
+  visitors.push({ x: W - ox + 2 + rint(0, 20), y: rint(0, 4), tx: rint(124, 218), k, type, want, sold, st: 'in', wait: 0, pal: pals[rint(0, pals.length - 1)] });
 }
 export function clearVisitors() { visitors.length = 0; }
 export function moveVisitors(sec) {
-  const v0 = 34 * sec;
+  const v0 = WALK * sec;
   for (const v of visitors) {
     if (v.st === 'in') { v.x -= v0; if (v.x <= v.tx) { v.x = v.tx; v.st = 'wait'; v.wait = 0; } }
-    else if (v.st === 'wait') { v.wait += sec; if (v.wait > 1) v.st = 'out'; }
+    else if (v.st === 'wait') { v.wait += sec; if (v.wait > WAIT) v.st = 'out'; }
     else v.x += v0;
   }
-  for (let i = visitors.length - 1; i >= 0; i--) if (visitors[i].x > W) visitors.splice(i, 1);
+  // 画面の右端（論理座標で W - ox）から出ていった客を消す。入ってくる途中の客は消さない
+  for (let i = visitors.length - 1; i >= 0; i--) if (visitors[i].st === 'out' && visitors[i].x > W - ox + 24) visitors.splice(i, 1);
 }
 
 /* ---------- 描画プリミティブ ---------- */
@@ -89,17 +97,24 @@ function drawRack(fr) {
   R(x0, y0 - 1, 54, 2, '#b7773a'); R(x0, y0 - 2, 54, 1, INK);
   R(x0, y0, 3, 92, '#7a4a22'); R(x0 + 51, y0, 3, 92, '#7a4a22');
   for (let r = 0; r < 6; r++) { const py = y0 + 14 + r * 15; R(x0, py, 54, 2, '#b7773a'); R(x0, py + 2, 54, 1, '#7a4a22'); }
-  const slots = rackCap(S) / QTY, used = rackUsed(S);
-  // 枠 s には「s*QTY 個目」が入っている束を描く
+  const used = rackUsed(S), per = Math.max(DRAW_UNIT, Math.ceil(rackCap(S) / RACK_SPOTS));
+  const shown = Math.min(RACK_SPOTS, Math.ceil(used / per));
+  // i 体目には「i*per 個目」が入っている束を描く
   const batchAt = u => { let acc = 0; for (const b of S.rack) { acc += b.n; if (u < acc) return b; } return null; };
-  for (let s = 0; s < 18; s++) {
-    const r = Math.floor(s / 3), c = s % 3, x = x0 + 5 + c * 16, y = y0 + r * 15;
-    if (s >= slots) { R(x + 3, y + 6, 8, 6, '#e2cfa3'); R(x + 3, y + 6, 8, 1, '#cdb585'); continue; }
-    const it = s * QTY < used ? batchAt(s * QTY) : null;
-    if (!it) continue;
-    sp(BIG, darPal(it.c), x, y);
-    if (it.ready > S.t) { const ph = (fr + s) % 3; circ(x + 14, y + 5 - ph, 2, '#ffffff'); circ(x + 12, y + 3 - ph, 1, '#ffffff'); }
-    else if ((fr + s) % 2) { R(x + 6, y - 3, 2, 5, '#e2412f'); }
+  for (let r = 0; r < 6; r++) {
+    const py = y0 + 14 + r * 15;
+    for (const layer of [0, 1]) { // 0＝奥の列（少し上）、1＝手前の列
+      for (let c = 0; c < 6; c++) {
+        const i = r * 12 + layer * 6 + c;
+        if (i >= shown) continue;
+        const it = batchAt(i * per);
+        if (!it) continue;
+        const x = x0 + 3 + c * 8, y = py - (layer ? 8 : 12);
+        sp(MINI, darPal(it.c), x, y);
+        if (it.ready > S.t) { if ((i + fr) % 5 === 0) { R(x + 5, y - 2 - (fr % 2), 1, 2, '#ffffff'); R(x + 6, y - 4 - (fr % 2), 1, 1, '#ffffff'); } }
+        else if ((fr + i) % 2 && i % 4 === 0) R(x + 3, y - 3, 2, 3, '#e2412f');
+      }
+    }
   }
   R(4, 119, 52, 10, INK); R(5, 120, 50, 8, '#fbf1dc');
   T(`乾燥 ${cnt(used)}個`, 30, 124.5, 7, INK);
@@ -153,11 +168,18 @@ function drawShelf() {
   R(x0, top, x1 - x0, 54, INK); R(x0 + 1, top, x1 - x0 - 2, 53, '#fbf7ef');
   T('だるま堂', cx, top - 4, 8, INK);
   R(x0 + 3, top + 2, x1 - x0 - 6, 50, '#e8dcc6');
+  // 1体＝DRAW_UNIT 個。3段×奥と手前6体ずつ＝36体まで並べ、あふれたら総数の札を出す
   const list = [];
-  for (const k of CK) for (let i = 0; i < Math.ceil(S.fin[k] / QTY) && list.length < 10; i++) list.push(k);
-  for (let r = 0; r < 3; r++) { R(x0 + 3, top + 17 + r * 16, x1 - x0 - 6, 2, '#fbf7ef'); R(x0 + 3, top + 19 + r * 16, x1 - x0 - 6, 1, '#cdbfa5'); }
-  for (let i = 0; i < Math.min(9, list.length); i++) { const r = Math.floor(i / 3), c = i % 3; sp(BIG, darPal(list[i]), x0 + 5 + c * 16, top + 3 + r * 16); }
-  if (list.length > 9) { R(x1 - 25, top + 2, 22, 8, '#d8382a'); T(cnt(finN(S)), x1 - 14, top + 6, 6, '#fff6e6'); }
+  for (const k of CK) for (let i = 0; i < Math.ceil(S.fin[k] / DRAW_UNIT) && list.length < 37; i++) list.push(k);
+  for (let r = 0; r < 3; r++) {
+    const line = top + 17 + r * 16;
+    R(x0 + 3, line, x1 - x0 - 6, 2, '#fbf7ef'); R(x0 + 3, line + 2, x1 - x0 - 6, 1, '#cdbfa5');
+    for (const layer of [0, 1]) for (let c = 0; c < 6; c++) {
+      const i = r * 12 + layer * 6 + c;
+      if (i < Math.min(36, list.length)) sp(MINI, darPal(list[i]), x0 + 4 + c * 8, line - (layer ? 8 : 12));
+    }
+  }
+  if (list.length > 36) { R(x1 - 25, top + 2, 22, 8, '#d8382a'); T(cnt(finN(S)), x1 - 14, top + 6, 6, '#fff6e6'); }
 }
 function drawWorkers(fr, working) {
   const P0 = { K: INK, H: '#2a1a14', R: '#fff6e6', S: '#f6c9a0', A: '#2f63d6', P: '#fff6e6' };
@@ -180,29 +202,45 @@ function drawWorkers(fr, working) {
   R(160, 92, 6, 10, INK); R(161, 93, 4, 9, '#6b4424'); R(161, 88, 1, 5, '#b7773a'); R(163, 87, 1, 6, '#b7773a'); R(162, 89, 1, 4, '#d8382a');
 }
 function drawMaterials() {
-  const boxes = Math.min(4, Math.ceil(S.mat / (8 * QTY)));
+  const boxes = Math.min(4, Math.ceil(S.mat / (8 * DRAW_UNIT)));
   const pos = [[0, 152], [24, 152], [48, 152], [10, 136]];
   for (let i = 0; i < boxes; i++) { const [x, y] = pos[i]; R(x, y, 23, 17, INK); R(x + 1, y + 1, 21, 15, '#c99558'); R(x + 1, y + 6, 21, 1, '#a8743e'); R(x + 10, y + 1, 3, 5, '#a8743e'); T('だるま', x + 11.5, y + 11.5, 6, '#5a3a1e'); }
-  const cans = Math.min(4, Math.ceil(S.mat / (4 * QTY)));
+  const cans = Math.min(4, Math.ceil(S.mat / (4 * DRAW_UNIT)));
   const cc = ['#d8382a', '#3aae78', '#2f63d6', '#f5c742'];
   for (let i = 0; i < cans; i++) { const x = 76 + i * 13, y = 136; R(x, y, 11, 13, INK); R(x + 1, y + 1, 9, 11, cc[i]); R(x + 1, y + 1, 9, 2, '#fff6e6'); R(x + 1, y + 3, 9, 1, INK); }
   if (S.mat < 1) { R(80, 140, 38, 11, '#d8382a'); R(80, 140, 38, 1, INK); T('素材切れ', 99, 145.5, 7, '#fff6e6'); }
 }
+function bubbleText(v) {
+  if (v.sold === 0) return ['売り切れ…', '#d8382a'];
+  if (v.sold < v.want) return [`${v.sold}個だけ…`, '#d8382a'];
+  if (v.want === 1) return ['買った！', INK];
+  return [v.type === 'trader' ? `${v.sold}個 仕入れ！` : `${v.sold}個！`, INK];
+}
 function drawVisitors(fr) {
-  const list = visitors.slice().sort((a, b) => a.x - b.x);
+  const list = visitors.slice().sort((a, b) => a.y - b.y || a.x - b.x);
   for (const v of list) {
-    const x = Math.round(v.x), walk = v.st !== 'wait';
-    sp(BACK, { K: INK, H: v.pal[0], S: '#f6c9a0', A: v.pal[1], P: v.pal[2] }, x, 144 + (walk ? fr % 2 : 0), 2);
+    const x = Math.round(v.x), walk = v.st !== 'wait', y = 142 + v.y + (walk ? fr % 2 : 0);
+    sp(BACK, { K: INK, H: v.pal[0], S: '#f6c9a0', A: v.pal[1], P: v.pal[2] }, x, y, 2);
+    // 業者・小売店は買った荷物を担いで帰る
+    if (v.st === 'out' && v.sold >= 5) { const w = v.type === 'trader' ? 12 : 8; R(x + 14, y + 2, w, 8, INK); R(x + 15, y + 3, w - 2, 6, '#c99558'); }
   }
   // ロープ
   R(116, 156, 4, 20, '#8a5a2b');
   for (let x = 120; x < W - ox; x += 6) R(x, 160, 6, 2, ((x / 6) | 0) % 2 ? '#fff6e6' : '#d8382a');
-  for (const v of list) {
-    if (v.st === 'in') continue;
-    const x = Math.round(v.x) + 10, txt = v.ok ? '買った！' : '売り切れ…', w = v.ok ? 30 : 36;
+  // 吹き出しは店先の客のうち目立つもの3人まで（業者・小売店・売り切れを優先）
+  const rank = v => v.type === 'trader' ? 0 : v.sold < v.want ? 1 : v.type === 'shop' ? 2 : 3;
+  const talk = list.filter(v => v.st === 'wait').sort((a, b) => rank(a) - rank(b) || a.wait - b.wait);
+  const placed = []; // 出した吹き出しの横範囲。重なるものは出さない
+  ctx.font = '7px "DotGothic16",sans-serif';
+  for (const v of talk) {
+    if (placed.length >= 3) break;
+    const [txt, col] = bubbleText(v);
+    const x = Math.round(v.x) + 10, w = Math.ceil(ctx.measureText(txt).width) + 6;
     const bx = Math.max(4, Math.min(W - ox * 2 - w - 2, x - w / 2));
+    if (placed.some(([l, r]) => bx < r + 2 && bx + w > l - 2)) continue;
+    placed.push([bx, bx + w]);
     R(bx, 130, w, 11, INK); R(bx + 1, 131, w - 2, 9, '#fff6e6'); R(x - 1, 141, 3, 2, INK); R(x, 141, 1, 1, '#fff6e6');
-    T(txt, bx + w / 2, 135.5, 7, v.ok ? INK : '#d8382a');
+    T(txt, bx + w / 2, 135.5, 7, col);
   }
 }
 function drawBunting(cols) {

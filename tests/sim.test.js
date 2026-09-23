@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as sim from '../src/sim.js';
 import { seeded, yen, yenShort, cnt, poisson } from '../src/util.js';
-import { RANKS, START_CASH, QTY } from '../src/constants.js';
+import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY } from '../src/constants.js';
 import { migrate } from '../src/save.js';
 import { play, passive, active } from '../scripts/autoplay.js';
 
@@ -47,8 +47,9 @@ describe('production & payment', () => {
     const S = sim.newGame(rng);
     S.events = [];
     for (let i = 0; i < 100; i++) sim.step(S, 0.01, {}, rng);
-    expect(S.mat).toBe(8 * QTY); // 本人 2QTY 個/日
-    expect(sim.rackUsed(S)).toBe(2 * QTY);
+    // 本人 2QTY 個/日（小数の端数で±1個ずれうる）
+    expect(Math.abs(S.mat - 8 * QTY)).toBeLessThanOrEqual(1);
+    expect(Math.abs(sim.rackUsed(S) - 2 * QTY)).toBeLessThanOrEqual(1);
     for (let i = 0; i < 375; i++) sim.step(S, 0.01, {}, rng); // t=4.75：t≦1.75 に作った分は乾いている
     expect(S.fin.red + S.stats.sold).toBeGreaterThanOrEqual(2 * QTY + 3.4 * QTY);
     // 素材→棚→完成品→販売 で個数が保存される（最初の素材と完成品の合計）
@@ -56,12 +57,12 @@ describe('production & payment', () => {
   });
   it('月末に払えなければ資金ショート', () => {
     const S = sim.newGame(seeded(1));
-    S.cash = 1200000;
+    S.cash = 120000;
     let short = null;
     sim.newDay(S, 10, { short: s => { short = s; } }, seeded(2));
     expect(S.strikes).toBe(1);
     expect(S.cash).toBe(0);
-    expect(short).toEqual({ cost: 3600000, paid: 1200000 });
+    expect(short).toEqual({ cost: 360000, paid: 120000 });
   });
   it('3回ショートで閉店', () => {
     const S = sim.newGame(seeded(1));
@@ -97,7 +98,7 @@ describe('money', () => {
   it('v1 セーブは金額と数量を QTY 倍に変換する', () => {
     const v1 = { cash: 20000, mat: 10, fin: { red: 2, green: 0, sky: 1, yellow: 0 }, rack: [{ c: 'red', ready: 3 }], sup: 40,
       recv: [{ amt: 1500, due: 3 }], stats: { sold: 1, missed: 2, rev: 1500 }, today: { sold: 1, missed: 0, rev: 1500 } };
-    const S = migrate(v1, { money: true });
+    const S = migrate(v1, OLD_SAVES.find(o => o.key.endsWith('v1')));
     expect(S.cash).toBe(20000 * QTY);
     expect(S.recv[0].amt).toBe(1500 * QTY);
     expect(S.mat).toBe(10 * QTY);
@@ -106,10 +107,22 @@ describe('money', () => {
     expect(S.stats).toEqual({ sold: QTY, missed: 2 * QTY, rev: 1500 * QTY });
     expect(sim.isValidSave(S)).toBe(true);
   });
-  it('v2 セーブは数量だけ変換する（金額は変換済み）', () => {
-    const S = migrate({ cash: 24000000, mat: 10, fin: { red: 2, green: 0, sky: 0, yellow: 0 }, rack: [], recv: [], stats: { sold: 0, missed: 0, rev: 0 }, today: { sold: 0, missed: 0, rev: 0 } }, { money: false });
-    expect(S.cash).toBe(24000000);
-    expect(S.mat).toBe(10 * QTY);
+  it('v3 セーブ（数量・金額とも1200倍）は1/10にする', () => {
+    const v3 = { cash: 24000000, mat: 12000, fin: { red: 2400, green: 0, sky: 0, yellow: 0 }, rack: [{ c: 'sky', n: 2400, ready: 5 }], sup: 48000,
+      recv: [{ amt: 3600000, due: 3 }], stats: { sold: 2400, missed: 0, rev: 3600000 }, today: { sold: 0, missed: 0, rev: 0 } };
+    const S = migrate(v3, OLD_SAVES.find(o => o.key.endsWith('v3')));
+    expect(S.cash).toBe(2400000);
+    expect(S.mat).toBe(1200);
+    expect(S.rack).toEqual([{ c: 'sky', n: 240, ready: 5 }]);
+    expect(S.stats.rev).toBe(360000);
+  });
+  it('客の種類ごとの個数が範囲内で、平均が MEAN_BUY に近い', () => {
+    const rng = seeded(9);
+    let sum = 0, maxWant = 0;
+    const N = 20000;
+    for (let i = 0; i < N; i++) { const b = sim.rollBuyer(rng); sum += b.want; maxWant = Math.max(maxWant, b.want); expect(b.want).toBeGreaterThanOrEqual(1); }
+    expect(maxWant).toBe(100);
+    expect(sum / N).toBeCloseTo(MEAN_BUY, 0);
   });
   it('ポアソン乱数の平均が合う', () => {
     const rng = seeded(5);
