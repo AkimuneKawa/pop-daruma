@@ -76,11 +76,19 @@
 - 公開する変更をしたら、`src/changelog.js` の `CHANGELOG` の先頭に1件足す（プレイヤー向けの言葉で）。大きな変更は上1桁（2.x→3.0）、それ以外は下1桁（2.4→2.5）を上げる
 - タイトル画面にバージョンを表示し、前回見たときより新しい版があれば「アップデート内容」に NEW を付ける（localStorage の `popdaruma_seen_version`）
 
-## ブランチ運用
+## ブランチ運用とリリース
 - `dev`：開発用。作業は dev で行い、dev に push する（`.github/workflows/test.yml` がテストとビルドだけ行う。公開はしない）
 - `main`：本番。main に入ったものだけが公開サイトに出る（`deploy.yml`）。main で直接作業しない
-- 本番に出すとき：dev のテストが通っていることを確かめてから、dev を main に取り込んで push する（`git checkout main && git merge --ff-only dev && git push && git checkout dev`）。取り込めないとき（main に dev にないコミットがある）は勝手に解決せずオーナーに確認する
+- `release/vX.Y`：公開した各版のブランチ。リリースのたびに自動で作られる（v1.0〜v2.4 は過去のコミットから作成済み）。書き換えない
 - オーナーの「プッシュ」は dev への push、「本番に反映」「リリース」は main への取り込み
+- **リリースの手順**：
+  1. dev で `src/changelog.js` の先頭に新しいバージョンを1件足す（main に取り込む＝新しいバージョンの発行）
+  2. dev のテストが通っていることを確かめ、`git checkout main && git merge --ff-only dev && git push && git checkout dev`（取り込めないときは勝手に解決せずオーナーに確認）
+  3. `deploy.yml` がバージョンを確認（公開済みの版番号なら止まる）→ テスト → ビルド → 公開 → `release/vX.Y` を作る
+- **前の版に戻す**：
+  - 一時的に：GitHub の Actions →「Rollback（前の版を公開）」→ 版（例：2.1）を入れて実行。`release/v2.1` の中身を公開する。main は変わらないので、次のリリースで最新版に戻る
+  - main ごと戻す：dev で `git checkout release/vX.Y -- . && git commit` のように中身をその版に戻し、changelog に新しいバージョン（「ver X.Y の内容に戻した」）を足してリリースする
+  - 戻すと、新しい版で保存したセーブは古い版では読めない（新しい版は古いセーブを変換できるが逆はできない）。ver 2.2 より前にはランキングがない
 
 ## デプロイ
 - 公開URL：https://akimunekawa.github.io/pop-daruma/ （GitHub Pages）

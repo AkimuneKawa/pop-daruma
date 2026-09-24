@@ -1,0 +1,55 @@
+name: Rollback（前の版を公開）
+
+# Actions の画面から手で実行する。入力した版（release/vX.Y）の中身をビルドして公開する。
+# main は変えないので、次に dev を main に取り込むと最新版の公開に戻る
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '公開する版（例：2.1）'
+        required: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 版の確認
+        env:
+          V: ${{ inputs.version }}
+        run: |
+          if ! [[ "$V" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then echo "::error::版は 2.1 のように数字で入れてください"; exit 1; fi
+      - uses: actions/checkout@v4
+        with:
+          ref: release/v${{ inputs.version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # 公開済みの版なのでテストは省略してビルドだけ
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

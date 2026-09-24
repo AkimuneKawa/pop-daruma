@@ -1,5 +1,6 @@
 name: Deploy to GitHub Pages
 
+# main に入った（dev から取り込んだ）ら、新しいバージョンとして公開し、版ブランチ release/vX.Y を作る
 on:
   push:
     branches: [main]
@@ -17,12 +18,30 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      # バージョンの確認：src/changelog.js の先頭の版がもう公開済み（release/vX.Y がある）なら止める。
+      # ただし中身がその版ブランチとまったく同じとき（戻したときなど）はそのまま公開する
+      - name: バージョンの確認
+        id: ver
+        run: |
+          V=$(node -e "import('./src/changelog.js').then(m => console.log(m.VERSION))")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --heads origin "release/v$V" > /dev/null; then
+            git fetch --depth=1 origin "release/v$V"
+            if [ "$(git rev-parse 'FETCH_HEAD^{tree}')" = "$(git rev-parse 'HEAD^{tree}')" ]; then
+              echo "release/v$V と同じ中身なので、そのまま公開します"
+            else
+              echo "::error::ver $V はもう公開済みです。src/changelog.js の先頭に新しいバージョンを足してから main に取り込んでください"
+              exit 1
+            fi
+          fi
       - run: npm ci
       - run: npm test
       - run: npm run build
@@ -43,3 +62,22 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # 公開できたら、その時点の main から版ブランチを作る（いつでもこの版に戻せるように）
+  release-branch:
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: 版ブランチを作る
+        env:
+          V: ${{ needs.build.outputs.version }}
+        run: |
+          if git ls-remote --exit-code --heads origin "release/v$V" > /dev/null; then
+            echo "release/v$V はもうあります"
+          else
+            git push origin "HEAD:refs/heads/release/v$V"
+            echo "release/v$V を作りました"
+          fi
