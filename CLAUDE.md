@@ -76,6 +76,12 @@
 - 公開する変更をしたら、`src/changelog.js` の `CHANGELOG` の先頭に1件足す（プレイヤー向けの言葉で）。大きな変更は上1桁（2.x→3.0）、それ以外は下1桁（2.4→2.5）を上げる
 - タイトル画面にバージョンを表示し、前回見たときより新しい版があれば「アップデート内容」に NEW を付ける（localStorage の `popdaruma_seen_version`）
 
+## ブランチ運用
+- `dev`：開発用。作業は dev で行い、dev に push する（`.github/workflows/test.yml` がテストとビルドだけ行う。公開はしない）
+- `main`：本番。main に入ったものだけが公開サイトに出る（`deploy.yml`）。main で直接作業しない
+- 本番に出すとき：dev のテストが通っていることを確かめてから、dev を main に取り込んで push する（`git checkout main && git merge --ff-only dev && git push && git checkout dev`）。取り込めないとき（main に dev にないコミットがある）は勝手に解決せずオーナーに確認する
+- オーナーの「プッシュ」は dev への push、「本番に反映」「リリース」は main への取り込み
+
 ## デプロイ
 - 公開URL：https://akimunekawa.github.io/pop-daruma/ （GitHub Pages）
-- `main` に push すると `.github/workflows/deploy.yml` がテスト→ビルド→公開まで自動で行う。テストが落ちたら公開されない
+- `main` に push すると `.github/workflows/deploy.yml` がテスト→ビルド→公開まで自動で行う。テストが落ちたら公開されない（前の版のまま）
