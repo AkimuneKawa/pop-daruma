@@ -8,6 +8,7 @@ import { $, buildStatic, renderUI as paintUI, toast, flashNews, modal, closeModa
 import { initScene, drawScene, moveVisitors, addVisitor, clearVisitors } from './scene.js';
 import * as sound from './audio.js';
 import * as ranking from './ranking.js';
+import { CHANGELOG, VERSION } from './changelog.js';
 
 let S = null;
 let speed = 0;
@@ -191,10 +192,30 @@ function openHelp(after) {
 function openLog() {
   modal(`<h2>ニュースの履歴</h2><p class="sub">今年の年商 ${yen(S.year.rev)}（目標 ${yen(REVENUE_GOAL)}）</p><div class="log">${S.news.slice(0, 20).map(n => `<p>${esc(n.t)}</p>`).join('') || '<p>まだありません</p>'}</div>`);
 }
+// アップデート内容を最後に見たバージョン（新しい版があればタイトルに NEW を出す）
+const SEEN_KEY = 'popdaruma_seen_version';
+const seenVersion = () => { try { return localStorage.getItem(SEEN_KEY); } catch (e) { return null; } };
 function showTitle() {
   const sv = load();
   $('#tCont').style.display = (sv && !sv.over) ? 'block' : 'none';
+  $('#tVer').textContent = `ver ${VERSION}`;
+  $('#tNewMark').hidden = seenVersion() === VERSION;
   $('#title').classList.add('show');
+}
+// バージョン a が b より新しいか（「2.10」＞「2.4」になるよう、区切りごとに数で比べる）
+function newerThan(a, b) {
+  const x = a.split('.').map(Number), y = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0);
+  return false;
+}
+// アップデート内容（新しい順）。前に見たときより新しい版には NEW を付ける
+function openChangelog(after) {
+  const seen = seenVersion();
+  const isNew = v => !seen || newerThan(v, seen);
+  const body = CHANGELOG.map(c => `<h3>ver ${c.version} ${esc(c.title)}<small>${c.date.replaceAll('-', '/')}</small>${isNew(c.version) && seen ? ' <span class="newmark">NEW</span>' : ''}</h3><ul>${c.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>`).join('');
+  modal(`<h2>アップデート内容</h2><p class="sub">いまのバージョン：ver ${VERSION}</p><div class="changes">${body}</div><button class="mbtn big" id="cClose">とじる</button>`, { noClose: true });
+  try { localStorage.setItem(SEEN_KEY, VERSION); } catch (e) { /* 保存できない環境 */ }
+  $('#cClose').onclick = () => { closeModal(); after?.(); };
 }
 
 /* ---------- ループ ---------- */
@@ -243,6 +264,7 @@ $('#tCont').onclick = () => {
   clearVisitors(); $('#title').classList.remove('show'); renderUI(); setSpeed(1);
 };
 $('#tHelp').onclick = () => { $('#title').classList.remove('show'); openHelp(showTitle); };
+$('#tNews').onclick = () => { $('#title').classList.remove('show'); openChangelog(showTitle); };
 $('#tRank').onclick = () => { $('#title').classList.remove('show'); openRanking('score', showTitle); };
 if (!ranking.enabled()) $('#tRank').style.display = 'none';
 document.addEventListener('visibilitychange', () => { if (document.hidden && S && !S.over) { setSpeed(0); save(); } });

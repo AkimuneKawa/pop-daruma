@@ -162,6 +162,14 @@ canvas.ico{width:1.35em;height:1.35em}
 .log p{margin:4px 0;font-size:14px;border-bottom:1px dashed var(--gray);padding-bottom:4px}
 .titlebox{text-align:center}
 .titlebox .logo{display:inline-flex;margin:4px 0 10px;font-size:18px}
+.tlinks{display:flex;justify-content:center;gap:18px;margin-top:10px}
+.newmark[hidden]{display:none}
+.newmark{display:inline-block;margin-left:4px;padding:0 4px;background:var(--red);color:#fff6e6;font-size:11px;text-decoration:none;vertical-align:1px}
+.ver{margin:8px 0 0;font-size:12px;color:var(--muted)}
+.changes h3{margin:12px 0 2px;font-size:16px;font-weight:normal;border-bottom:3px solid var(--line);padding-bottom:2px}
+.changes h3 small{font-size:12px;color:var(--muted);margin-left:6px}
+.changes h3 .newmark{font-size:11px}
+.changes ul{padding-left:18px;margin:4px 0}.changes li{font-size:14px;margin:3px 0}
 .titlebox .tdar{width:112px;height:112px;image-rendering:pixelated;image-rendering:crisp-edges}
 .toast{position:fixed;left:50%;top:calc(30% + env(safe-area-inset-top,0px));transform:translateX(-50%);background:#2a2320;color:#fff6e6;border:3px solid #f5c742;padding:8px 14px;font-size:14px;z-index:20;display:none;max-width:90vw;white-space:nowrap}
 .toast.show{display:block}

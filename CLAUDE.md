@@ -29,6 +29,7 @@
 | `src/audio.js` | BGM と効果音（Web Audio で合成。音声ファイルなし）。売れたときの「チャリーン」、年末商戦はお祭りの曲。音の設定は localStorage の `popdaruma_sound` |
 | `src/ranking.js` | ランキング（Supabase の REST API を fetch で直接呼ぶ）。登録・上位50件・順位。接続先は環境変数 `VITE_SUPABASE_URL`・`VITE_SUPABASE_ANON_KEY`（未設定ならランキングのボタンを出さない） |
 | `supabase/schema.sql` | ランキング用テーブル `scores` と権限（誰でも読めて登録だけできる）。Supabase の SQL Editor で実行する |
+| `src/changelog.js` | バージョンとアップデート履歴（タイトル画面の「アップデート内容」）。`VERSION` は先頭の版 |
 | `src/save.js` | localStorage のセーブ／ロード |
 | `src/main.js` | 起動、ゲームループ、操作ダイアログの配線 |
 | `scripts/autoplay.js` | 自動プレイ（投資なし `passive`／投資あり `active`） |
@@ -70,6 +71,10 @@
 - 公開サイトの接続先は GitHub リポジトリの Variables（`VITE_SUPABASE_URL`・`VITE_SUPABASE_ANON_KEY`）。手元で試すときは `.env.local` に同じ名前で書く（git には入れない）
 - スコアはブラウザから送るので、改ざんを完全には防げない（テーブルの CHECK で明らかにおかしい値だけはじく）
 - e2e（`e2e/ranking.spec.js`）は疑似の Supabase（`page.route`）で動かす
+
+## バージョンとアップデート履歴
+- 公開する変更をしたら、`src/changelog.js` の `CHANGELOG` の先頭に1件足す（プレイヤー向けの言葉で）。大きな変更は上1桁（2.x→3.0）、それ以外は下1桁（2.4→2.5）を上げる
+- タイトル画面にバージョンを表示し、前回見たときより新しい版があれば「アップデート内容」に NEW を付ける（localStorage の `popdaruma_seen_version`）
 
 ## デプロイ
 - 公開URL：https://akimunekawa.github.io/pop-daruma/ （GitHub Pages）
