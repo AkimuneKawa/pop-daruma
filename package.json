@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "autoplay": "node scripts/autoplay.js",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "debug": "node scripts/debug-server.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

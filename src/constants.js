@@ -16,8 +16,8 @@ export const SHARE = {
   rush: { red: 0.7, gold: 0.14, pink: 0.06, sky: 0.05, green: 0.05 },
 };
 export const MONTHS = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'];
-// 時間：1ステップ＝1週（実時間 STEP_SEC 秒）。1ヶ月＝4週、1年＝48週（4月第1週〜3月第4週）、3年で決算
-export const WEEKS = 4, YEAR = 48, YEARS = 3, TOTAL = YEAR * YEARS, STEP_SEC = 15;
+// 時間：1ステップ＝1週（実時間 BALANCE.stepSec 秒）。1ヶ月＝4週、1年＝48週（4月第1週〜3月第4週）、3年で決算
+export const WEEKS = 4, YEAR = 48, YEARS = 3, TOTAL = YEAR * YEARS;
 // 年ごとの変化（1年目・2年目・3年目）。評判が広まって通常の客足が増え、家賃も上がる
 export const GROWTH = [1.0, 1.3, 1.6], RENT_BY_YEAR = [280000, 336000, 392000];
 export const DRY = 1, PAY_DELAY = 1; // 乾燥にかかる週数、売上が入金されるまでの週数
@@ -44,10 +44,17 @@ export const MARKET_LEVELS = [0.9, 1.25];
 export const QTY = 140;
 export const DRAW_UNIT = 10; // 工房シーンのだるま1体が表す個数（乾燥棚は容量に応じて増える）
 
-// 単価（1個あたり）。素材は売値の約50%（相場で上下するので、安いときに仕入れるのが腕の見せどころ）
-export const BASE = 3000, MAT = 1500;
+// ひとつの数で決まるバランス値（デバッグパネルから変えられるように1つのオブジェクトにまとめる）
+export const BALANCE = {
+  base: 3000, // だるまの基準の売値（客の「このくらいなら払う」値段の基準）
+  mat: 1500, // 素材1個の基準の値段（売値の約50%。相場で上下するので、安いときに仕入れるのが腕の見せどころ）
+  stockValue: 1200, // 決算時の完成品1個の評価額
+  startCash: 1700000, // 開店資金（在庫を全色そろえたぶん少なめ）
+  taxRate: 0.3, // 税金：年の利益（売上−素材・家賃・給料・宣伝・投資・契約金）にかかり、翌年最初の月末に払う
+  accidentEquip: 0.3, // 突発の出費の修理代に上乗せする、設備投資額の割合（設備が大きい店ほど修理代も高い）
+  stepSec: 15, // 1週が実時間で何秒か
+};
 export const PRICE_UNIT = 10; // 売値・素材価格は10円単位で丸める
-export const STOCK_VALUE = 1200; // 決算時の完成品1個の評価額
 
 // 数量
 export const SELF_RATE = 2 * QTY; // 本人の生産数（個/週）
@@ -58,9 +65,9 @@ export const RACK_BASE = 300, RACK_STEP = 200; // 乾燥棚の容量と1段階�
 export const WH_BASE = 1200, WH_STEP = 900; // 倉庫の容量と1段階の増分
 
 // 売値と「買わない」客。売値はプレイヤーが決める（経営メニュー）。
-// 客には「このくらいなら払う」基準の値段（BASE×色×季節・イベント×工房の腕前）があり、
+// 客には「このくらいなら払う」基準の値段（BALANCE.base×色×季節・イベント×工房の腕前）があり、
 // 断る確率＝1/(1+exp(-slope×(売値/基準−mid)))。値段を気にしない客（indifferent）は断らない。
-// 安売りの評判で客足は（BASE×腕前/売値）^draw 倍（drawMin〜drawMax）になる
+// 安売りの評判で客足は（BALANCE.base×腕前/売値）^draw 倍（drawMin〜drawMax）になる
 export const PRICING = {
   min: 1500, max: 6000, step: 250, start: 3000,
   mid: 1.5, slope: 5,
@@ -69,7 +76,7 @@ export const PRICING = {
   bulk: { shop: { mid: 1.1, slope: 8 }, trader: { mid: 1.0, slope: 10 } },
   skillRef: 0.25, // 工房の腕前が★2から1上がるごとに基準の値段が25%上がる（断られにくくなる）
   draw: 1.0, drawMin: 0.5, drawMax: 1.8,
-  popPrice: 1, // 満足した客で上がる人気は（BASE×腕前/売値）^popPrice 倍（安いとお得感で口コミが広がる）
+  popPrice: 1, // 満足した客で上がる人気は（BALANCE.base×腕前/売値）^popPrice 倍（安いとお得感で口コミが広がる）
   refusePop: 0.2, // 「高い」と断った客1人で下がる人気
 };
 // 1回の仕入れ量と、素材1個の値段にかかる倍率（まとめ買いほど安い）
@@ -105,8 +112,6 @@ export const ADS = {
 };
 
 // 固定費・投資（家賃・給料は難易度調整で v1×QTY より高め）
-export const RENT = RENT_BY_YEAR[0]; // 1年目の家賃（月）
-export const START_CASH = 1700000; // 開店資金（在庫を全色そろえたぶん少なめ）
 // 職人。名簿（roster.js）の100人から、週ごとに入れ替わる求職者を雇う
 export const CRAFT = {
   max: 6, // 同時に雇える人数
@@ -122,11 +127,7 @@ export const RACK_UP = [960000, 1440000, 1920000, 2400000, 3000000, 3600000, 430
 export const WH_UP = [600000, 960000, 1440000, 2000000, 2600000, 3300000, 4200000, 5200000, 6400000, 7800000];
 // 3年後の総資産による称号（上から判定）
 export const RANKS = [[25000000, 'だるま大名'], [18000000, '名工'], [10000000, '一人前'], [0, '見習い']];
-// 税金：年の利益（売上−素材・家賃・給料・宣伝・投資・契約金）にかかり、翌年最初の月末に払う
-export const TAX_RATE = 0.3;
-// 突発の出費：年に1回、予告なしに起きる。修理代は「家賃の min〜max か月分＋設備投資額の ACCIDENT_EQUIP 割」を月末に払う
-// （設備が大きい店ほど修理代も高い）
-export const ACCIDENT_EQUIP = 0.3;
+// 突発の出費：年に1回、予告なしに起きる。修理代は「家賃の min〜max か月分＋設備投資額の BALANCE.accidentEquip 割」を月末に払う
 export const ACCIDENTS = [
   { name: '乾燥機が壊れた', min: 2, max: 5 },
   { name: '工房が雨漏りした', min: 2, max: 4 },

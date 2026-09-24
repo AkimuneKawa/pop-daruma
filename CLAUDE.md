@@ -15,6 +15,7 @@
 - `npm run autoplay -- 100` 自動プレイの統計を表示
 - `npm run e2e` Playwright で2サイズのはみ出しチェック。スクショは `e2e/screenshots/`
 - `npm run build` 本番ビルド（`dist/`、相対パスなのでどこに置いても動く）
+- `npm run debug` ブランチ切り替えランチャー（http://localhost:5180）。ブランチを選ぶと `.debug/` に取り出してビルドし、デバッグパネル入りで遊べる
 
 ## 構成
 | ファイル | 役割 |
@@ -30,6 +31,9 @@
 | `src/ranking.js` | ランキング（Supabase の REST API を fetch で直接呼ぶ）。登録・上位50件・順位。接続先は環境変数 `VITE_SUPABASE_URL`・`VITE_SUPABASE_ANON_KEY`（未設定ならランキングのボタンを出さない） |
 | `supabase/schema.sql` | ランキング用テーブル `scores` と権限（誰でも読めて登録だけできる）。Supabase の SQL Editor で実行する |
 | `src/changelog.js` | バージョンとアップデート履歴（タイトル画面の「アップデート内容」）。`VERSION` は先頭の版 |
+| `src/strategies.js` | 自動プレイの戦略（投資なし・高価格・低価格）と `playUntil`。`npm run autoplay`（`scripts/autoplay.js` は集計表示だけ）とデバッグの「ジャンプ」で使う |
+| `src/debug/` | デバッグパネル（`panel.js`）、変えられるパラメータとテンプレ（`params.js`）、途中へのジャンプ（`jump.js`）。`npm run dev` とランチャーのビルド（`VITE_DEBUG=1`）のときだけ読み込み、本番ビルドには入らない |
+| `scripts/debug-server.js` | ブランチ切り替えランチャー（`npm run debug`） |
 | `src/save.js` | localStorage のセーブ／ロード |
 | `src/main.js` | 起動、ゲームループ、操作ダイアログの配線 |
 | `scripts/autoplay.js` | 自動プレイ（投資なし `passive`／投資あり `active`） |
@@ -90,6 +94,13 @@
   - 一時的に：GitHub の Actions →「Rollback（前の版を公開）」→ 版（例：2.1）を入れて実行。`release/v2.1` の中身を公開する。main は変わらないので、次のリリースで最新版に戻る
   - main ごと戻す：dev で `git checkout release/vX.Y -- . && git commit` のように中身をその版に戻し、changelog に新しいバージョン（「ver X.Y の内容に戻した」）を足してリリースする
   - 戻すと、新しい版で保存したセーブは古い版では読めない（新しい版は古いセーブを変換できるが逆はできない）。ver 2.2 より前にはランキングがない
+
+## デバッグモード（手元だけ）
+- `npm run dev` で遊ぶと画面左に「DEBUG」タブが出る。ジャンプ（序盤・年末商戦の前・中盤・後半・クリア直前・好きな週／今のゲームの早送り。戦略の自動プレイで早送りしてありそうな状態を作る）、パラメータ、状態の書き換え、テンプレ（読み込み・JSONの書き出しと読み込み）、一時停止ができる
+- 変えられるパラメータは `src/debug/params.js` の `PARAMS`。新しいバランス値を足したら、ここにも足す。1つの数のバランス値は `constants.js` の `BALANCE` に置く（`export const` の数は書き換えられないため）
+- 変えたパラメータは localStorage（`popdaruma_debug_params`）に残る。標準から変えていると DEBUG タブが赤くなる
+- デバッグで何かいじったゲーム（`S.debug`）はランキングに登録できない。ランチャーのビルドは Supabase につながない
+- `npm run debug`：ブランチ（main・dev・feature・release/vX.Y）を選んで遊ぶ。コミット済みの中身を `.debug/worktrees/` に取り出してビルドするので、コミットしていない変更は `npm run dev` で試す
 
 ## デプロイ
 - 公開URL：https://akimunekawa.github.io/pop-daruma/ （GitHub Pages）

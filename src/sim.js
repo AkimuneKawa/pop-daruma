@@ -1,6 +1,6 @@
 // ゲームのシミュレーション本体。DOM に依存しない。
 // 状態 S を引数で受け取り、画面側への通知は hooks 経由で行う。
-import { COLORS, CK, TOTAL, YEAR, YEARS, GROWTH, RENT_BY_YEAR, DRY, PAY_DELAY, WEEKS, MARKET_STEP, MM, BASE, MAT, RENT, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_STOCK, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE, ADS, MARKET_SWING, MARKET_EVENT_SCALE, TAX_RATE, ACCIDENTS, ACCIDENT_EQUIP, PRICING, LOTS, START_LOT, DEMAND } from './constants.js';
+import { COLORS, CK, TOTAL, YEAR, YEARS, GROWTH, RENT_BY_YEAR, DRY, PAY_DELAY, WEEKS, MARKET_STEP, MM, BALANCE, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, PRICE_UNIT, RANKS, REVENUE_GOAL, QTY, START_MAT, START_STOCK, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE, ADS, MARKET_SWING, MARKET_EVENT_SCALE, ACCIDENTS, PRICING, LOTS, START_LOT, DEMAND } from './constants.js';
 import { rint, pick, yen, cnt, poisson, monthOf, dateStr, fullDateStr, weekOfYear, yearOf } from './util.js';
 import { ROSTER, wageOf } from './roster.js';
 import { EVENT_TYPES, genEvents, demandOf, priceOf } from './events.js';
@@ -39,7 +39,7 @@ export const teamSkill = S => {
 // 工房の腕前による、客の基準の値段の倍率（★2で1倍。うまいほど高くても買ってもらえる）
 export const quality = S => 1 + PRICING.skillRef * (teamSkill(S) - CRAFT.selfSkill);
 // 安売りの評判による客足の倍率
-export const priceDraw = S => Math.min(PRICING.drawMax, Math.max(PRICING.drawMin, Math.pow(BASE * quality(S) / S.price, PRICING.draw)));
+export const priceDraw = S => Math.min(PRICING.drawMax, Math.max(PRICING.drawMin, Math.pow(BALANCE.base * quality(S) / S.price, PRICING.draw)));
 // 売値が基準の r 倍のとき、値段を気にする客が「高い」と断る確率（まとめ買いの客はより敏感）
 export const refuseProb = (r, type = 'person') => {
   const b = PRICING.bulk[type] ?? PRICING;
@@ -49,9 +49,9 @@ export const refuseProb = (r, type = 'person') => {
 export const salePrice = (S, k) => Math.round(S.price * COLORS[k].price / PRICE_UNIT) * PRICE_UNIT;
 // 国籍 o・種類 type の客が、基準の倍率 refMult のときに断る確率（値段を気にしない客も含めた平均）
 export const refuseRate = (S, refMult = 1, o = 'jp', type = 'person') =>
-  (PRICING.bulk[type] ? 1 : 1 - PRICING.indifferent[o]) * refuseProb(S.price / (BASE * refMult * quality(S)), type);
+  (PRICING.bulk[type] ? 1 : 1 - PRICING.indifferent[o]) * refuseProb(S.price / (BALANCE.base * refMult * quality(S)), type);
 export const recvTotal = S => S.recv.reduce((a, r) => a + r.amt, 0);
-export const matPrice = S => Math.round(MAT * S.m / PRICE_UNIT) * PRICE_UNIT;
+export const matPrice = S => Math.round(BALANCE.mat * S.m / PRICE_UNIT) * PRICE_UNIT;
 export const phase = (e, d) => (d >= e.start && d < e.start + e.len) ? 'act' : ((d >= e.start - e.ann && d < e.start) ? 'ann' : null);
 export const curDay = S => Math.min(S.day, TOTAL - 1);
 // 人気：0〜1 の割合、客足の倍率、★の数（1〜5）
@@ -69,7 +69,7 @@ export const activeEvents = (S, d, p = 'act') => S.events.filter(e => phase(e, d
 export const colorStopped = (S, k, d = curDay(S)) => activeEvents(S, d).some(e => EVENT_TYPES[e.type].stop?.includes(k));
 export function newGame(rng = Math.random) {
   const S = {
-    t: 0, day: 0, cash: START_CASH, mat: START_MAT, fin: { ...START_STOCK }, rack: [], color: 'red', prog: 0,
+    t: 0, day: 0, cash: BALANCE.startCash, mat: START_MAT, fin: { ...START_STOCK }, rack: [], color: 'red', prog: 0,
     rackLv: 0, whLv: 0, staff: [], recv: [], m: 1, sup: 0, noise: 1, events: genEvents(rng), strikes: 0, lowMorale: false,
     stats: { sold: 0, missed: 0, rev: 0, refused: 0 }, today: { sold: 0, missed: 0, rev: 0, refused: 0 }, news: [], banner: '', over: false,
     year: { sold: 0, missed: 0, rev: 0, cost: 0, refused: 0 }, history: [], // year＝今年の成績（cost＝経費）、history＝終わった年の成績
@@ -201,7 +201,7 @@ function arrive(S, k, n, refMult, type, origin, rng) {
     return { sold: 0, missed: 0, amt: 0, refused: true };
   }
   const sold = Math.min(n, S.fin[k]), missed = n - sold, amt = sold * salePrice(S, k);
-  if (sold === n) S.pop += POP.gain[type] * Math.pow(BASE * quality(S) / S.price, PRICING.popPrice);
+  if (sold === n) S.pop += POP.gain[type] * Math.pow(BALANCE.base * quality(S) / S.price, PRICING.popPrice);
   else if (sold === 0) S.pop = Math.max(0, S.pop - POP.miss);
   S.fin[k] -= sold;
   S.today.sold += sold; S.today.rev += amt; S.stats.sold += sold; S.stats.rev += amt; S.year.sold += sold; S.year.rev += amt; S.year.missed += missed;
@@ -311,7 +311,7 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
   // 年の終わり：その年の成績を記録する（最終年は最終決算で）
   let yearEnd = null;
   if (nd % YEAR === 0 && S.strikes < 3) {
-    const tax = Math.round(Math.max(0, S.year.rev - S.year.cost) * TAX_RATE / 10000) * 10000;
+    const tax = Math.round(Math.max(0, S.year.rev - S.year.cost) * BALANCE.taxRate / 10000) * 10000;
     yearEnd = { year: nd / YEAR, ...S.year, pop: popStars(S), tax };
     S.history.push(yearEnd);
     S.year = { sold: 0, missed: 0, rev: 0, cost: 0, refused: 0 };
@@ -329,7 +329,7 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
   hot = hot.concat(dayNews(S, nd));
   // 突発の出費（予告なし）：修理代を次の月末の支払いに足す
   for (const e of S.events) if (e.type === 'accident' && e.start === nd) {
-    const A = ACCIDENTS[e.kind], amt = Math.round((rentOf(nd) * (A.min + (A.max - A.min) * e.months) + equipValue(S) * ACCIDENT_EQUIP) / 10000) * 10000;
+    const A = ACCIDENTS[e.kind], amt = Math.round((rentOf(nd) * (A.min + (A.max - A.min) * e.months) + equipValue(S) * BALANCE.accidentEquip) / 10000) * 10000;
     S.bills.push({ name: '修理代', amt });
     hot.push(`${A.name}！修理代 ${yen(amt)} を月末に払う`);
   }
@@ -417,7 +417,7 @@ export function fire(S, id) {
 
 /* ---------- 決算 ---------- */
 export function settle(S, bankrupt) {
-  const stock = finN(S) * STOCK_VALUE + S.mat * MAT, score = S.cash + recvTotal(S) + stock;
+  const stock = finN(S) * BALANCE.stockValue + S.mat * BALANCE.mat, score = S.cash + recvTotal(S) + stock;
   const rank = bankrupt ? '閉店' : RANKS.find(([min]) => score >= min)[1];
   const years = S.history.map(h => h.rev), best = Math.max(0, ...years);
   return { stock, score, rank, revenue: S.stats.rev, years, best, goal: best >= REVENUE_GOAL };
