@@ -1,11 +1,11 @@
 name: Test (dev)
 
-# dev への push と、main へのプルリクエストでテストとビルドだけ行う（公開はしない）
+# dev・feature ブランチへの push と、dev・main へのプルリクエストでテストとビルドだけ行う（公開はしない）
 on:
   push:
-    branches: [dev]
+    branches: [dev, 'feature/**']
   pull_request:
-    branches: [main]
+    branches: [dev, main]
   workflow_dispatch:
 
 permissions:

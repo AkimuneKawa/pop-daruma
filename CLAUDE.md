@@ -77,10 +77,11 @@
 - タイトル画面にバージョンを表示し、前回見たときより新しい版があれば「アップデート内容」に NEW を付ける（localStorage の `popdaruma_seen_version`）
 
 ## ブランチ運用とリリース
-- `dev`：開発用。作業は dev で行い、dev に push する（`.github/workflows/test.yml` がテストとビルドだけ行う。公開はしない）
+- `feature/機能名`：新機能の作業用。dev から切って作業し、できたら dev に取り込む（`git checkout dev && git merge --no-ff feature/xxx && git push`）。取り込んだら feature ブランチは消す（ローカルと GitHub の両方）
+- `dev`：開発の集約先。feature を取り込む場所で、直接の機能開発はしない（運用や設定の小さな変更は dev で直接してよい）。push するとテストとビルドだけ行う（`.github/workflows/test.yml`。feature への push でも動く。公開はしない）
 - `main`：本番。main に入ったものだけが公開サイトに出る（`deploy.yml`）。main で直接作業しない
 - `release/vX.Y`：公開した各版のブランチ。リリースのたびに自動で作られる（v1.0〜v2.4 は過去のコミットから作成済み）。書き換えない
-- オーナーの「プッシュ」は dev への push、「本番に反映」「リリース」は main への取り込み
+- オーナーの「プッシュ」はいま作業中のブランチ（ふつうは feature）への push、「dev に入れて」は feature を dev に取り込むこと、「本番に反映」「リリース」は dev を main に取り込むこと
 - **リリースの手順**：
   1. dev で `src/changelog.js` の先頭に新しいバージョンを1件足す（main に取り込む＝新しいバージョンの発行）
   2. dev のテストが通っていることを確かめ、`git checkout main && git merge --ff-only dev && git push && git checkout dev`（取り込めないときは勝手に解決せずオーナーに確認）
