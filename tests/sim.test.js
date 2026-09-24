@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt, poisson } from '../src/util.js';
-import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP, RENT, CRAFT, ADS, MARKET_EVENT_SCALE, PRICING, START_MAT, START_STOCK, RACK_BASE, WH_BASE, WEEKS, TOTAL } from '../src/constants.js';
+import { RANKS, BALANCE, QTY, OLD_SAVES, MEAN_BUY, POP, RENT_BY_YEAR, CRAFT, ADS, MARKET_EVENT_SCALE, PRICING, START_MAT, START_STOCK, RACK_BASE, WH_BASE, WEEKS, TOTAL } from '../src/constants.js';
 import { migrate, weekify } from '../src/save.js';
 import { ROSTER, wageOf } from '../src/roster.js';
-import { play, passive, active } from '../scripts/autoplay.js';
+import { play, passive, active } from '../src/strategies.js';
 
 describe('newGame', () => {
   it('初期状態が仕様どおり', () => {
     const S = sim.newGame(seeded(1));
-    expect(S.cash).toBe(START_CASH);
+    expect(S.cash).toBe(BALANCE.startCash);
     expect(S.mat).toBe(START_MAT);
     expect(S.fin).toEqual(START_STOCK);
     expect(Object.values(S.fin).every(n => n > 0)).toBe(true); // 全色そろっている
@@ -76,7 +76,7 @@ describe('production & payment', () => {
     sim.newDay(S, WEEKS, { short: s => { short = s; } }, seeded(2));
     expect(S.strikes).toBe(1);
     expect(S.cash).toBe(0);
-    expect(short).toEqual({ cost: RENT, paid: 120000 });
+    expect(short).toEqual({ cost: RENT_BY_YEAR[0], paid: 120000 });
   });
   it('3回ショートで閉店', () => {
     const S = sim.newGame(seeded(1));
@@ -420,5 +420,30 @@ describe('pricing & lots', () => {
     expect(sim.buyBlockReason(S)).toBe('お金が足りない');
     S.cash = 1e8;
     expect(sim.buy(S)).toEqual({ n: 100, cost: sim.buyCost(S, 100) });
+  });
+});
+
+describe('debug params', () => {
+  it('テンプレを読み込むと値が変わり、標準に戻せる。書き出した JSON を読み込める', async () => {
+    const { applyPreset, changedValues, isDefault, importValues, PARAM_BY_KEY } = await import('../src/debug/params.js');
+    expect(isDefault()).toBe(true);
+    applyPreset('hard');
+    expect(RENT_BY_YEAR[0]).toBe(360000);
+    expect(BALANCE.taxRate).toBe(0.4);
+    const saved = JSON.stringify(changedValues());
+    applyPreset('standard');
+    expect(isDefault()).toBe(true);
+    expect(importValues(saved)).toBeGreaterThan(0);
+    expect(RENT_BY_YEAR[0]).toBe(360000);
+    expect(importValues('{"nope": 1, "mat": "abc", "demand": 2}')).toBe(1); // 知らない名前・数でない値は無視
+    expect(PARAM_BY_KEY.demand.get()).toBe(2);
+    applyPreset('standard');
+    expect(isDefault()).toBe(true);
+  });
+  it('ジャンプ：新しいゲームを戦略どおりに指定の週まで進める', async () => {
+    const { jumpTo } = await import('../src/debug/jump.js');
+    const { S } = jumpTo(60, 'high');
+    expect(Math.floor(S.t)).toBe(60);
+    expect(S.over).toBe(false);
   });
 });

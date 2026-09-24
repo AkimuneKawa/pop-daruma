@@ -1,6 +1,6 @@
 // 起動・ゲームループ・プレイヤー操作の配線
 import './style.css';
-import { STEP_SEC, STOCK_VALUE, REVENUE_GOAL, POP, CRAFT, ADS, PRICING, LOTS } from './constants.js';
+import { BALANCE, REVENUE_GOAL, POP, CRAFT, ADS, PRICING, LOTS } from './constants.js';
 import { yen, cnt, esc } from './util.js';
 import * as sim from './sim.js';
 import { save as saveState, load } from './save.js';
@@ -49,8 +49,8 @@ function startNew() { S = sim.newGame(); save(); clearVisitors(); }
 function showEnd(bankrupt) {
   const { stock, score, rank, revenue, years, best, goal } = sim.settle(S, bankrupt);
   modal(`<h2>${bankrupt ? '閉店…' : '決算！'}</h2><p class="sub">${bankrupt ? '資金ショートが3回続き、工房を閉じることになりました。' : '3年間おつかれさまでした。'}</p>
-  <table class="res">${years.map((r, i) => `<tr><td>${i + 1}年目の年商</td><td>${yen(r)}</td></tr>`).join('')}<tr><td>3年間の売上</td><td>${yen(revenue)}</td></tr><tr><td>所持金</td><td>${yen(S.cash)}</td></tr><tr><td>予定収入</td><td>${yen(sim.recvTotal(S))}</td></tr><tr><td>在庫（完成品は1個${yen(STOCK_VALUE)}で評価）</td><td>${yen(stock)}</td></tr><tr><td>総資産</td><td>${yen(score)}</td></tr><tr><td>人気</td><td>Lv${sim.popStars(S)} ${POP.names[sim.popStars(S) - 1]}</td></tr><tr><td>販売数</td><td>${cnt(S.stats.sold)}個</td></tr><tr><td>売り逃し</td><td>${cnt(S.stats.missed)}個</td></tr><tr><td>「高い」と断った客</td><td>${cnt(S.stats.refused ?? 0)}人</td></tr></table>
-  <p class="rank">称号：${rank}</p>${!bankrupt && ranking.enabled() ? `<div class="entry" id="entry">${S.submitted ? '<p class="sub">ランキングに登録ずみです</p>' : `<label>ランキングに登録<input id="rName" maxlength="12" placeholder="名前（12文字まで）" value="${esc(ranking.savedName())}"></label><button class="mbtn orange" id="rSend">登録</button>`}<p class="sub" id="rMsg"></p></div>` : ''}${bankrupt ? '' : goal ? `<p class="rank red">★ 年商${yen(REVENUE_GOAL)} 達成！ ★</p>` : `<p class="sub" style="text-align:center">目標の年商${yen(REVENUE_GOAL)}まで あと${yen(REVENUE_GOAL - best)}（いちばん良かった年）</p>`}${ranking.enabled() ? '<button class="mbtn big" id="seeRank">ランキングを見る</button>' : ''}<button class="mbtn red big" id="again">もう一度あそぶ</button>`, { noClose: true });
+  <table class="res">${years.map((r, i) => `<tr><td>${i + 1}年目の年商</td><td>${yen(r)}</td></tr>`).join('')}<tr><td>3年間の売上</td><td>${yen(revenue)}</td></tr><tr><td>所持金</td><td>${yen(S.cash)}</td></tr><tr><td>予定収入</td><td>${yen(sim.recvTotal(S))}</td></tr><tr><td>在庫（完成品は1個${yen(BALANCE.stockValue)}で評価）</td><td>${yen(stock)}</td></tr><tr><td>総資産</td><td>${yen(score)}</td></tr><tr><td>人気</td><td>Lv${sim.popStars(S)} ${POP.names[sim.popStars(S) - 1]}</td></tr><tr><td>販売数</td><td>${cnt(S.stats.sold)}個</td></tr><tr><td>売り逃し</td><td>${cnt(S.stats.missed)}個</td></tr><tr><td>「高い」と断った客</td><td>${cnt(S.stats.refused ?? 0)}人</td></tr></table>
+  <p class="rank">称号：${rank}</p>${!bankrupt && S.debug ? '<p class="sub" style="text-align:center">デバッグプレイなのでランキングには登録できません</p>' : ''}${!bankrupt && ranking.enabled() && !S.debug ? `<div class="entry" id="entry">${S.submitted ? '<p class="sub">ランキングに登録ずみです</p>' : `<label>ランキングに登録<input id="rName" maxlength="12" placeholder="名前（12文字まで）" value="${esc(ranking.savedName())}"></label><button class="mbtn orange" id="rSend">登録</button>`}<p class="sub" id="rMsg"></p></div>` : ''}${bankrupt ? '' : goal ? `<p class="rank red">★ 年商${yen(REVENUE_GOAL)} 達成！ ★</p>` : `<p class="sub" style="text-align:center">目標の年商${yen(REVENUE_GOAL)}まで あと${yen(REVENUE_GOAL - best)}（いちばん良かった年）</p>`}${ranking.enabled() ? '<button class="mbtn big" id="seeRank">ランキングを見る</button>' : ''}<button class="mbtn red big" id="again">もう一度あそぶ</button>`, { noClose: true });
   $('#again').onclick = () => { startNew(); closeModal(); renderUI(); setSpeed(1); };
   const back = () => showEnd(bankrupt);
   if ($('#seeRank')) $('#seeRank').onclick = () => openRanking('score', back);
@@ -225,7 +225,7 @@ function loop(now) {
   last = now;
   if (S && !S.over && speed > 0) {
     // 経過時間 × 速度を 0.01週刻みで進める
-    const dd = sec * speed / STEP_SEC, n = Math.ceil(dd / 0.01);
+    const dd = sec * speed / BALANCE.stepSec, n = Math.ceil(dd / 0.01);
     for (let i = 0; i < n && !S.over && speed > 0; i++) sim.step(S, dd / n, hooks);
     moveVisitors(sec * speed);
   }
@@ -277,3 +277,13 @@ requestAnimationFrame(loop);
 
 // 開発時のデバッグ用（本番ビルドでは除去される）
 if (import.meta.env.DEV) window.__daruma = { get S() { return S; }, sim, sound };
+// デバッグパネル：手元の npm run dev と、npm run debug のランチャーで作ったビルド（VITE_DEBUG=1）のときだけ読み込む
+if (import.meta.env.DEV || import.meta.env.VITE_DEBUG === '1') {
+  import('./debug/panel.js').then(({ initDebug }) => initDebug({
+    getS: () => S,
+    setS(next) { S = next; clearVisitors(); closeModal(); $('#title').classList.remove('show'); save(); renderUI(); setSpeed(1); },
+    refresh() { save(); renderUI(); },
+    paused: () => speed === 0,
+    setPaused(p) { if (S && !S.over) setSpeed(p ? 0 : 1); },
+  }));
+}
