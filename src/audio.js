@@ -1,4 +1,4 @@
-// BGM と効果音。音声ファイルは使わず Web Audio でその場で合成する（SFC 風のチップチューン）。
+// BGM と効果音。BGM は月ごとの曲（public/bgm/）、効果音は Web Audio でその場で合成する（SFC 風）。
 // ブラウザの制約で、最初のタップ（unlock）までは音を出さない
 const MODE_KEY = 'popdaruma_sound';
 export const MODES = ['all', 'se', 'off']; // ぜんぶ／効果音だけ／なし
@@ -11,13 +11,13 @@ if (!MODES.includes(mode)) mode = 'all';
 
 export const getMode = () => mode;
 // テスト用：音声の状態（AudioContext の状態と、いま鳴っている BGM）
-export const debugState = () => ({ ctx: ctx?.state ?? 'none', bgm: bgm?.name ?? null });
+export const debugState = () => ({ ctx: ctx?.state ?? 'none', bgm: bgmTrack() });
 export function setMode(m) {
   mode = m;
   try { localStorage.setItem(MODE_KEY, m); } catch (e) { /* 保存できない環境 */ }
   if (!ctx) return;
   sfxBus.gain.value = m === 'off' ? 0 : 0.5;
-  bgmBus.gain.value = m === 'all' ? 0.16 : 0;
+  bgmBus.gain.value = m === 'all' ? 0.35 : 0; // 曲は効果音より控えめに
 }
 
 // 最初のユーザー操作で呼ぶ
@@ -123,63 +123,52 @@ export function end(bankrupt) {
 }
 
 /* ---------- BGM ---------- */
-// ヨナ抜き音階（D E G A B）のメロディ。1文字列＝1小節8分音符×8、'-' は伸ばす、'.' は休み
-const N = { D4: 62, E4: 64, G4: 67, A4: 69, B4: 71, D5: 74, E5: 76, G5: 79, A5: 81 };
-const TUNES = {
-  // いつもの町：のんびりした昭和の商店街
-  normal: {
-    bpm: 108,
-    lead: [
-      'D5 - E5 D5 B4 - A4 -', 'G4 A4 B4 D5 A4 - - .', 'B4 - D5 E5 D5 B4 A4 G4', 'A4 - B4 A4 G4 - E4 .',
-      'G4 - A4 B4 D5 - E5 -', 'D5 B4 A4 B4 D5 - - .', 'E5 - D5 B4 A4 - G4 A4', 'B4 A4 G4 E4 D4 - - .',
-    ],
-    bass: ['D', 'G', 'D', 'A', 'G', 'D', 'A', 'D'],
-  },
-  // 年末商戦：速くてにぎやかなお祭り
-  rush: {
-    bpm: 144,
-    lead: [
-      'A4 A4 B4 D5 E5 - D5 B4', 'A4 B4 D5 - E5 D5 B4 .', 'G5 - E5 D5 E5 - D5 B4', 'A4 B4 A4 G4 A4 - - .',
-      'D5 D5 E5 G5 A5 - G5 E5', 'D5 E5 G5 - E5 D5 B4 .', 'B4 D5 E5 D5 B4 A4 G4 A4', 'B4 - A4 G4 D4 - - .',
-    ],
-    bass: ['D', 'D', 'G', 'A', 'D', 'G', 'A', 'D'],
-  },
-};
-const ROOT = { D: 38, G: 43, A: 45 };
+// 月ごとの曲（public/bgm/*.mp3。ファイル名は流す月）。月の並びは MONTHS と同じ4月始まり（0＝4月〜11＝3月）
+const TRACK_BY_MONTH = ['4', '5-7', '5-7', '5-7', '8-9', '8-9', '10', '11-12', '11-12', '1', '2', '3'];
+export const trackForMonth = mo => TRACK_BY_MONTH[mo];
+const trackUrl = key => `${import.meta.env.BASE_URL}bgm/${key}.mp3`;
+const FADE = 1.5; // 曲を切り替えるときのフェード（秒）
 
-let bgm = null; // { name, timer, next, step }
-export function playBgm(name) {
-  if (!ctx || (bgm && bgm.name === name)) return;
-  stopBgm();
-  const tune = TUNES[name];
-  const lead = tune.lead.map(bar => bar.split(' '));
-  const eighth = 60 / tune.bpm / 2, total = lead.length * 8;
-  bgm = { name, step: 0, next: ctx.currentTime + 0.1 };
-  const tick = () => {
-    while (bgm && bgm.next < ctx.currentTime + 0.15) {
-      const s = bgm.step % total, bar = Math.floor(s / 8), i = s % 8, t = bgm.next;
-      // メロディ（伸ばし '-' の数だけ長く鳴らす）
-      const n = lead[bar][i];
-      if (n !== '-' && n !== '.') {
-        let len = 1;
-        while (i + len < 8 && lead[bar][i + len] === '-') len++;
-        tone(bgmBus, 'square', hz(N[n]), t, eighth * len * 0.95, 0.12);
-      }
-      // ベース（根音と5度を4分音符で）
-      if (i % 2 === 0) {
-        const r = ROOT[tune.bass[bar]] + (i % 4 === 2 ? 7 : 0);
-        tone(bgmBus, 'triangle', hz(r), t, eighth * 1.8, 0.35);
-      }
-      // 太鼓とハイハット
-      if (i === 0 || i === 4) tone(bgmBus, 'sine', 120, t, 0.12, 0.5, { slide: 50 });
-      if (i === 2 || i === 6) noise(bgmBus, t, 0.08, 0.12, { hp: 1500, lp: 6000 });
-      if (name === 'rush' || i % 2 === 1) noise(bgmBus, t, 0.03, 0.05, { hp: 7000 });
-      bgm.step++; bgm.next += eighth;
-    }
-  };
-  tick();
-  bgm.timer = setInterval(tick, 40);
+// プレーヤーを2つ用意して使い回す（iPhone では、操作と関係ないタイミングで新しい音を鳴らせないことがあるため）。
+// それぞれ Web Audio につないで、音量を bgmBus と自分のゲインで決める
+let decks = null, cur = null; // cur＝いま鳴らしているプレーヤー { el, gain, key }
+function ensureDecks() {
+  if (decks || !ctx) return;
+  decks = [0, 1].map(() => {
+    const el = new Audio();
+    el.loop = true; el.preload = 'auto';
+    const gain = ctx.createGain(); gain.gain.value = 0;
+    ctx.createMediaElementSource(el).connect(gain); gain.connect(bgmBus);
+    return { el, gain, key: null };
+  });
 }
+function fadeTo(d, v, sec) {
+  const t = ctx.currentTime, g = d.gain.gain;
+  g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(v, t + sec);
+}
+// key の曲を流す（同じ曲なら続きから）。「音：ぜんぶ」以外では流さない
+export function playBgm(key) {
+  if (!ctx || mode !== 'all') { stopBgm(); return; }
+  ensureDecks();
+  if (cur && cur.key === key) {
+    if (cur.el.paused || cur.stopping) { cur.stopping = false; cur.el.play().catch(() => {}); fadeTo(cur, 1, 0.3); }
+    return;
+  }
+  const next = decks.find(d => d !== cur);
+  if (next.key !== key) { next.el.src = trackUrl(key); next.key = key; next.el.currentTime = 0; }
+  next.stopping = false;
+  next.el.play().catch(() => {});
+  fadeTo(next, 1, cur ? FADE : 0.3);
+  if (cur) { const prev = cur; fadeTo(prev, 0, FADE); setTimeout(() => { if (prev !== cur) prev.el.pause(); }, FADE * 1000 + 100); }
+  cur = next;
+}
+// 止める（次に同じ曲を流すと続きから）
 export function stopBgm() {
-  if (bgm) { clearInterval(bgm.timer); bgm = null; }
+  if (!cur) return;
+  const d = cur;
+  d.stopping = true; // 音を小さくしてから止める（そのあいだに再開されたら止めない）
+  fadeTo(d, 0, 0.3);
+  setTimeout(() => { if (d.stopping || d !== cur) d.el.pause(); }, 350);
+  if (mode !== 'all') cur = null;
 }
+export const bgmTrack = () => (cur && !cur.el.paused && !cur.stopping ? cur.key : null);

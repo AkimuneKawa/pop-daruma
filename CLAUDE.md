@@ -27,7 +27,7 @@
 | `src/sprites.js` | ドット絵データ（文字列配列）と `spr` / `darPal` |
 | `src/events.js` | 季節イベント・バズ・事件の定義（効果・ニュース文・町の空気・旗飾り・客の国籍）と `genEvents` |
 | `src/roster.js` | 職人名簿（100人）と月給の式 `wageOf` |
-| `src/audio.js` | BGM と効果音（Web Audio で合成。音声ファイルなし）。売れたときの「チャリーン」、年末商戦はお祭りの曲。音の設定は localStorage の `popdaruma_sound` |
+| `src/audio.js` | BGM と効果音。BGM は月ごとの曲（`public/bgm/*.mp3`、ファイル名が流す月。`TRACK_BY_MONTH` で対応）を、月が変わるとフェードで切り替える。効果音は Web Audio で合成（売れたときの「チャリーン」など）。音の設定は localStorage の `popdaruma_sound` |
 | `src/ranking.js` | ランキング（Supabase の REST API を fetch で直接呼ぶ）。登録・上位50件・順位。接続先は環境変数 `VITE_SUPABASE_URL`・`VITE_SUPABASE_ANON_KEY`（未設定ならランキングのボタンを出さない） |
 | `supabase/schema.sql` | ランキング用テーブル `scores` と権限（誰でも読めて登録だけできる）。Supabase の SQL Editor で実行する |
 | `src/changelog.js` | バージョンとアップデート履歴（タイトル画面の「アップデート内容」）。`VERSION` は先頭の版 |
@@ -75,6 +75,10 @@
 - 公開サイトの接続先は GitHub リポジトリの Variables（`VITE_SUPABASE_URL`・`VITE_SUPABASE_ANON_KEY`）。手元で試すときは `.env.local` に同じ名前で書く（git には入れない）
 - スコアはブラウザから送るので、改ざんを完全には防げない（テーブルの CHECK で明らかにおかしい値だけはじく）
 - e2e（`e2e/ranking.spec.js`）は疑似の Supabase（`page.route`）で動かす
+
+## BGM の曲ファイル
+- `public/bgm/` に置く（ビルドで `dist/bgm/` にそのままコピーされる）。曲をもらったら 128kbps の mp3 に変換してから置く（例：`ffmpeg -i 元.mp3 -map_metadata -1 -codec:a libmp3lame -b:a 128k public/bgm/4.mp3`）。曲ごとの音量（ラウドネス）がそろっているかも確かめる
+- 月と曲の対応は `src/audio.js` の `TRACK_BY_MONTH`（4月始まり）
 
 ## バージョンとアップデート履歴
 - 公開する変更をしたら、`src/changelog.js` の `CHANGELOG` の先頭に1件足す（プレイヤー向けの言葉で）。大きな変更は上1桁（2.x→3.0）、それ以外は下1桁（2.4→2.5）を上げる

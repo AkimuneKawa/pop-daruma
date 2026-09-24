@@ -1,7 +1,7 @@
 // 起動・ゲームループ・プレイヤー操作の配線
 import './style.css';
 import { BALANCE, REVENUE_GOAL, POP, CRAFT, ADS, PRICING, LOTS } from './constants.js';
-import { yen, cnt, esc } from './util.js';
+import { yen, cnt, esc, monthOf } from './util.js';
 import * as sim from './sim.js';
 import { save as saveState, load } from './save.js';
 import { $, buildStatic, renderUI as paintUI, toast, flashNews, modal, closeModal, bindModalBackdrop } from './ui.js';
@@ -97,9 +97,9 @@ function buy() {
   toast(`素材を${cnt(r.n)}個 仕入れた（${yen(r.cost)}）`);
 }
 function setColor(c) { if (!S || S.over) return; S.color = c; save(); renderUI(); }
-// BGM：動いている間だけ鳴らす。年末商戦中はお祭りの曲
+// BGM：動いている間だけ、その月の曲を流す
 function syncBgm() {
-  if (speed > 0 && S && !S.over) sound.playBgm(sim.inRush(S.day) ? 'rush' : 'normal');
+  if (speed > 0 && S && !S.over) sound.playBgm(sound.trackForMonth(monthOf(S.day)));
   else sound.stopBgm();
 }
 // ゲームの進み。0＝止める（決算・資金ショート・タイトル・タブを離れたとき）、1＝進める
@@ -231,7 +231,7 @@ function loop(now) {
   }
   uiAcc += sec;
   if (uiAcc > 0.25) { uiAcc = 0; renderUI(); }
-  if (uiAcc === 0) syncBgm(); // 年末商戦の始まり・終わりで曲を切り替える
+  if (uiAcc === 0) syncBgm(); // 月が変わったら曲を切り替える
   drawScene(now, S, speed);
   requestAnimationFrame(loop);
 }

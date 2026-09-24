@@ -1,7 +1,7 @@
 // BGM と効果音：エラーなく鳴り、切り替えが効くこと
 import { test, expect } from '@playwright/test';
 
-test('音：タップで有効になり、BGMは動いている間だけ、切り替えが効く', async ({ page }) => {
+test('音：タップで有効になり、BGMは動いている間だけその月の曲が流れ、切り替えが効く', async ({ page }) => {
   const errs = []; page.on('pageerror', e => errs.push(e.message));
   await page.setViewportSize({ width: 375, height: 667 });
   await page.goto('/');
@@ -10,7 +10,7 @@ test('音：タップで有効になり、BGMは動いている間だけ、切�
   await page.click('#tNew');
   await page.waitForTimeout(800);
   const st = () => page.evaluate(() => window.__daruma.sound.debugState());
-  expect(await st()).toEqual({ ctx: 'running', bgm: 'normal' });
+  expect(await st()).toEqual({ ctx: 'running', bgm: '4' }); // 4月の曲
 
   // 売れた・売り切れ・仕入れ・投資の音を鳴らしてもエラーにならない
   await page.evaluate(() => { const s = window.__daruma.sound; s.sold(1); s.sold(40); s.soldOut(); s.buy(); s.invest(); s.hire(); s.news(); s.short(); s.end(false); });
@@ -19,12 +19,16 @@ test('音：タップで有効になり、BGMは動いている間だけ、切�
   await page.click('#bTitle');
   expect((await st()).bgm).toBeNull();
   await page.click('#tCont');
-  expect((await st()).bgm).toBe('normal');
+  expect((await st()).bgm).toBe('4');
 
-  // 年末商戦に入るとお祭りの曲に替わる
+  // 11月（年末商戦）になると 11-12月の曲に切り替わる
   await page.evaluate(() => { const S = window.__daruma.S; S.t = 29.1; S.day = 29; });
   await page.waitForTimeout(600);
-  expect((await st()).bgm).toBe('rush');
+  expect((await st()).bgm).toBe('11-12');
+  // 1月は 1月の曲
+  await page.evaluate(() => { const S = window.__daruma.S; S.t = 36.1; S.day = 36; });
+  await page.waitForTimeout(600);
+  expect((await st()).bgm).toBe('1');
 
   // 音：ぜんぶ → 効果音だけ → なし → ぜんぶ
   await expect(page.locator('#bSound')).toHaveText('音：ぜんぶ');
