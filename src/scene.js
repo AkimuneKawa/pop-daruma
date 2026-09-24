@@ -45,7 +45,7 @@ const ORIGIN_LOOK = {
   west: { hair: ['#f2d27a', '#d8742a', '#b08050', '#e8c060'], cloth: ['#5a8a4a', '#3a6aa8', '#fff6e6', '#8a5a2b'] },
 };
 // 客1人。type＝person/shop/trader、want＝欲しい個数、sold＝買えた個数、origin＝jp/cn/west
-export function addVisitor(k, type, want, sold, origin = 'jp') {
+export function addVisitor(k, type, want, sold, origin = 'jp', refused = false) {
   if (visitors.length >= MAX_VISITORS) return;
   const pals = type === 'trader' ? TRADER : type === 'shop' ? SHOP : CUST;
   const pal = pals[rint(0, pals.length - 1)].slice();
@@ -54,7 +54,7 @@ export function addVisitor(k, type, want, sold, origin = 'jp') {
     pal[0] = look.hair[rint(0, look.hair.length - 1)];
     if (type === 'person') pal[1] = look.cloth[rint(0, look.cloth.length - 1)];
   }
-  visitors.push({ x: W - ox + 2 + rint(0, 20), y: rint(0, 4), tx: rint(124, 218), k, type, want, sold, origin, st: 'in', wait: 0, pal,
+  visitors.push({ x: W - ox + 2 + rint(0, 20), y: rint(0, 4), tx: rint(124, 218), k, type, want, sold, origin, refused, st: 'in', wait: 0, pal,
     pack: origin === 'west', flag: origin === 'cn' && rint(0, 2) === 0 });
 }
 export function clearVisitors() { visitors.length = 0; }
@@ -230,12 +230,13 @@ function drawMaterials() {
 }
 // 結果の吹き出しは国籍ごとの言葉で
 const WORDS = {
-  jp: { ok: '買った！', none: '売り切れ…' },
-  cn: { ok: '買到了！', none: '賣完了…' },
-  west: { ok: 'Nice!', none: 'Sold out…' },
+  jp: { ok: '買った！', none: '売り切れ…', dear: '高い…' },
+  cn: { ok: '買到了！', none: '賣完了…', dear: '太貴了…' },
+  west: { ok: 'Nice!', none: 'Sold out…', dear: 'Too pricey…' },
 };
 function bubbleText(v) {
   const w = WORDS[v.origin] ?? WORDS.jp;
+  if (v.refused) return [w.dear, '#d8382a'];
   if (v.sold === 0) return [w.none, '#d8382a'];
   if (v.sold < v.want) return [`${v.sold}個だけ…`, '#d8382a'];
   if (v.want === 1) return [w.ok, INK];

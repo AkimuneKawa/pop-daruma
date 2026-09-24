@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as sim from '../src/sim.js';
 import { seeded, yen, cnt, poisson } from '../src/util.js';
-import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP, RENT, CRAFT, ADS, MARKET_EVENT_SCALE, START_MAT, START_STOCK, RACK_BASE, WH_BASE, WEEKS, TOTAL } from '../src/constants.js';
+import { RANKS, START_CASH, QTY, OLD_SAVES, MEAN_BUY, POP, RENT, CRAFT, ADS, MARKET_EVENT_SCALE, PRICING, START_MAT, START_STOCK, RACK_BASE, WH_BASE, WEEKS, TOTAL } from '../src/constants.js';
 import { migrate, weekify } from '../src/save.js';
 import { ROSTER, wageOf } from '../src/roster.js';
 import { play, passive, active } from '../scripts/autoplay.js';
@@ -101,8 +101,9 @@ describe('popularity', () => {
     const S = sim.newGame(seeded(1));
     S.events = []; S.noise = 1;
     S.fin = { red: 1000, gold: 0, pink: 0, sky: 0, green: 0 };
+    S.price = 2000; // 安くして「高い」と断る客を減らす
     const before = S.pop;
-    for (let i = 0; i < 100; i++) sim.step(S, 0.01, {}, seeded(i + 1)); // 1日分
+    for (let i = 0; i < 200; i++) sim.step(S, 0.01, {}, seeded(i + 1)); // 2週分
     expect(S.pop).toBeGreaterThan(before);
     S.fin = { red: 0, gold: 0, pink: 0, sky: 0, green: 0 }; S.rack = []; S.color = 'stop';
     const high = S.pop;
@@ -156,13 +157,14 @@ describe('craftsmen', () => {
     S.staff = ROSTER.slice(90, 90 + CRAFT.max).map(c => ({ ...c }));
     expect(sim.hire(S, S.pool[0])).toBeNull();
   });
-  it('うまさの高い職人がいると人気の上がり方が大きい', () => {
+  it('うまさの高い職人がいると「高い」と断られにくい', () => {
     const S = sim.newGame(seeded(1));
-    expect(sim.skillMult(S)).toBe(1);
+    S.price = 3500;
+    const plain = sim.refuseRate(S);
     S.staff = [{ ...ROSTER[0], skill: 5, speed: 5 }];
-    expect(sim.skillMult(S)).toBeGreaterThan(1.5);
+    expect(sim.refuseRate(S)).toBeLessThan(plain);
     S.staff = [{ ...ROSTER[0], skill: 1, speed: 5 }];
-    expect(sim.skillMult(S)).toBeLessThan(1);
+    expect(sim.refuseRate(S)).toBeGreaterThan(plain);
   });
   it('旧版の職人（tatsu/hana）は名簿の職人に置き換える', () => {
     const S = sim.normalize({ fin: { red: 0 }, pop: 0, staff: ['tatsu', 'hana'] });
@@ -376,5 +378,47 @@ describe('taxes & accidents', () => {
     const S = sim.newGame(seeded(1));
     S.events = [{ type: 'accident', start: 5, len: 1, ann: 0, kind: 0, months: 0 }];
     expect(sim.dayNews(S, 4)).toEqual([]); // 予告はない
+  });
+});
+
+describe('pricing & lots', () => {
+  it('高いほど「高い」と断られ、ふつうの外国人客は値段を気にしにくいが、まとめ買いの客は国籍に関係なく敏感', () => {
+    const S = sim.newGame(seeded(1));
+    S.price = 2500; const cheap = sim.refuseRate(S);
+    S.price = 4000; const dear = sim.refuseRate(S);
+    expect(dear).toBeGreaterThan(cheap * 3);
+    expect(sim.refuseRate(S, 1, 'west')).toBeLessThan(sim.refuseRate(S, 1, 'jp'));
+    expect(sim.refuseRate(S, 1, 'west', 'trader')).toBe(sim.refuseRate(S, 1, 'jp', 'trader'));
+    expect(sim.refuseRate(S, 1, 'jp', 'trader')).toBeGreaterThan(sim.refuseRate(S, 1, 'jp'));
+    // 年末商戦（客の基準が1.4倍）なら同じ値段でも断られにくい
+    expect(sim.refuseRate(S, 1.4)).toBeLessThan(dear);
+  });
+  it('安売りすると客足が増える', () => {
+    const S = sim.newGame(seeded(1));
+    S.events = []; S.noise = 1;
+    S.price = 3000; const base = sim.lambda(S, 5).rate.red;
+    S.price = 2250; expect(sim.lambda(S, 5).rate.red).toBeGreaterThan(base * 1.2);
+    S.price = 4500; expect(sim.lambda(S, 5).rate.red).toBeLessThan(base * 0.8);
+  });
+  it('売値は範囲内・刻みに丸める', () => {
+    const S = sim.newGame(seeded(1));
+    sim.setPrice(S, 99999); expect(S.price).toBe(PRICING.max);
+    sim.setPrice(S, 0); expect(S.price).toBe(PRICING.min);
+    sim.setPrice(S, 3130); expect(S.price).toBe(3250);
+  });
+  it('まとめ買いほど1個が安く、入らない量やお金が足りない量は買えない（減らして買わない）', () => {
+    const S = sim.newGame(seeded(1));
+    S.cash = 1e8; S.m = 1; S.sup = 1e6;
+    expect(sim.lotPrice(S, 3000)).toBeLessThan(sim.lotPrice(S, 500));
+    expect(sim.lotPrice(S, 100)).toBeGreaterThan(sim.lotPrice(S, 300));
+    S.lot = 3000; // 倉庫（1,200）に入らない
+    expect(sim.buyBlockReason(S)).toBe('倉庫に入らない');
+    const mat = S.mat;
+    expect(sim.buy(S)).toBeNull();
+    expect(S.mat).toBe(mat);
+    S.lot = 100; S.cash = 10;
+    expect(sim.buyBlockReason(S)).toBe('お金が足りない');
+    S.cash = 1e8;
+    expect(sim.buy(S)).toEqual({ n: 100, cost: sim.buyCost(S, 100) });
   });
 });

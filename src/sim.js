@@ -1,6 +1,6 @@
 // ゲームのシミュレーション本体。DOM に依存しない。
 // 状態 S を引数で受け取り、画面側への通知は hooks 経由で行う。
-import { COLORS, CK, TOTAL, YEAR, YEARS, GROWTH, RENT_BY_YEAR, DRY, PAY_DELAY, WEEKS, MARKET_STEP, BUY_N, MM, BASE, MAT, RENT, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_STOCK, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE, ADS, MARKET_SWING, MARKET_EVENT_SCALE, TAX_RATE, ACCIDENTS, ACCIDENT_EQUIP } from './constants.js';
+import { COLORS, CK, TOTAL, YEAR, YEARS, GROWTH, RENT_BY_YEAR, DRY, PAY_DELAY, WEEKS, MARKET_STEP, MM, BASE, MAT, RENT, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, START_CASH, PRICE_UNIT, STOCK_VALUE, RANKS, REVENUE_GOAL, QTY, START_MAT, START_STOCK, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE, ADS, MARKET_SWING, MARKET_EVENT_SCALE, TAX_RATE, ACCIDENTS, ACCIDENT_EQUIP, PRICING, LOTS, START_LOT, DEMAND } from './constants.js';
 import { rint, pick, yen, cnt, poisson, monthOf, dateStr, fullDateStr, weekOfYear, yearOf } from './util.js';
 import { ROSTER, wageOf } from './roster.js';
 import { EVENT_TYPES, genEvents, demandOf, priceOf } from './events.js';
@@ -36,8 +36,20 @@ export const teamSkill = S => {
   const w = S.staff.reduce((a, c) => a + craftRate(c) * m, SELF_RATE);
   return S.staff.reduce((a, c) => a + craftRate(c) * m * c.skill, SELF_RATE * CRAFT.selfSkill) / w;
 };
-// 満足した客で上がる人気の倍率（腕前★2で1倍）
-export const skillMult = S => teamSkill(S) / CRAFT.selfSkill;
+// 工房の腕前による、客の基準の値段の倍率（★2で1倍。うまいほど高くても買ってもらえる）
+export const quality = S => 1 + PRICING.skillRef * (teamSkill(S) - CRAFT.selfSkill);
+// 安売りの評判による客足の倍率
+export const priceDraw = S => Math.min(PRICING.drawMax, Math.max(PRICING.drawMin, Math.pow(BASE * quality(S) / S.price, PRICING.draw)));
+// 売値が基準の r 倍のとき、値段を気にする客が「高い」と断る確率（まとめ買いの客はより敏感）
+export const refuseProb = (r, type = 'person') => {
+  const b = PRICING.bulk[type] ?? PRICING;
+  return 1 / (1 + Math.exp(-b.slope * (r - b.mid)));
+};
+// 色 k の売値（きんは高級品）
+export const salePrice = (S, k) => Math.round(S.price * COLORS[k].price / PRICE_UNIT) * PRICE_UNIT;
+// 国籍 o・種類 type の客が、基準の倍率 refMult のときに断る確率（値段を気にしない客も含めた平均）
+export const refuseRate = (S, refMult = 1, o = 'jp', type = 'person') =>
+  (PRICING.bulk[type] ? 1 : 1 - PRICING.indifferent[o]) * refuseProb(S.price / (BASE * refMult * quality(S)), type);
 export const recvTotal = S => S.recv.reduce((a, r) => a + r.amt, 0);
 export const matPrice = S => Math.round(MAT * S.m / PRICE_UNIT) * PRICE_UNIT;
 export const phase = (e, d) => (d >= e.start && d < e.start + e.len) ? 'act' : ((d >= e.start - e.ann && d < e.start) ? 'ann' : null);
@@ -59,10 +71,10 @@ export function newGame(rng = Math.random) {
   const S = {
     t: 0, day: 0, cash: START_CASH, mat: START_MAT, fin: { ...START_STOCK }, rack: [], color: 'red', prog: 0,
     rackLv: 0, whLv: 0, staff: [], recv: [], m: 1, sup: 0, noise: 1, events: genEvents(rng), strikes: 0, lowMorale: false,
-    stats: { sold: 0, missed: 0, rev: 0 }, today: { sold: 0, missed: 0, rev: 0 }, news: [], banner: '', over: false,
-    year: { sold: 0, missed: 0, rev: 0, cost: 0 }, history: [], // year＝今年の成績（cost＝経費）、history＝終わった年の成績
+    stats: { sold: 0, missed: 0, rev: 0, refused: 0 }, today: { sold: 0, missed: 0, rev: 0, refused: 0 }, news: [], banner: '', over: false,
+    year: { sold: 0, missed: 0, rev: 0, cost: 0, refused: 0 }, history: [], // year＝今年の成績（cost＝経費）、history＝終わった年の成績
     bills: [], // 次の月末に家賃・給料と一緒に払う出費 {name, amt}（税金・修理代）
-    pop: 0, popStars: 1, pool: [], ads: [],
+    pop: 0, popStars: 1, pool: [], ads: [], price: PRICING.start, lot: START_LOT,
   };
   refreshPool(S, rng);
   updateMarket(S, true);
@@ -107,6 +119,9 @@ export function normalize(S) {
   if (!Array.isArray(S.ads)) S.ads = [];
   // 1年版のセーブ：今年の成績と、2年目以降のイベントを補う
   if (!S.stats) S.stats = { sold: 0, missed: 0, rev: 0 };
+  if (typeof S.price !== 'number') S.price = PRICING.start;
+  if (!LOTS.some(([q]) => q === S.lot)) S.lot = START_LOT;
+  for (const o of [S.stats, S.today, S.year]) if (o && typeof o.refused !== 'number') o.refused = 0;
   if (!Array.isArray(S.bills)) S.bills = [];
   if (S.year && typeof S.year.cost !== 'number') S.year.cost = 0;
   if (!S.year) { S.year = { sold: S.stats.sold, missed: S.stats.missed, rev: S.stats.rev }; S.history = []; }
@@ -146,10 +161,11 @@ export function updateMarket(S, first, rng = Math.random) {
 export function lambda(S, d) {
   const mo = monthOf(d), share = inRush(d) ? SHARE.rush : SHARE.normal;
   const growth = GROWTH[Math.min(YEARS, yearOf(d)) - 1]; // 年々評判が広まって客足が増える
-  const base = 2.4 * QTY * MM[mo] * growth * S.noise * popMult(S) * (1 + adBoost(S, d)), rate = {}, mult = {}; // rate は需要（個/週）。イベントの上乗せは人気に関係しない
+  // rate は需要（個/週）。イベントの上乗せは人気・値段に関係しない。mult は客の基準の値段の倍率
+  const base = DEMAND.base * QTY * MM[mo] * growth * S.noise * popMult(S) * (1 + adBoost(S, d)) * priceDraw(S), rate = {}, mult = {};
   const org = {}; // 色ごとの客の国籍の重み
   for (const k of CK) {
-    rate[k] = base * share[k]; mult[k] = COLORS[k].price * (inRush(d) ? RUSH.price : 1);
+    rate[k] = base * share[k]; mult[k] = inRush(d) ? RUSH.price : 1;
     org[k] = Object.fromEntries(Object.entries(ORIGIN_BASE).map(([o, p]) => [o, rate[k] * p]));
   }
   for (const e of activeEvents(S, d)) for (const k of CK) {
@@ -159,7 +175,6 @@ export function lambda(S, d) {
   }
   return { rate, mult, org };
 }
-export const unitPrice = mult => Math.round(BASE * mult / PRICE_UNIT) * PRICE_UNIT;
 // 客1人が欲しがる個数と種類を決める
 export function rollBuyer(rng = Math.random) {
   let x = rng();
@@ -177,10 +192,16 @@ function rollOrigin(w, rng) {
   for (const [o, p] of Object.entries(w)) { if (x < p) return o; x -= p; }
   return 'jp';
 }
-// 色 k を n 個欲しい type の客が来る。在庫があるだけ売れ、残りは売り逃し。満足度で人気が動く
-function arrive(S, k, n, mult, type) {
-  const sold = Math.min(n, S.fin[k]), missed = n - sold, amt = sold * unitPrice(mult);
-  if (sold === n) S.pop += POP.gain[type] * skillMult(S);
+// 色 k を n 個欲しい type の客が来る。値段が高いと断り（人気が少し下がる）、
+// 買うなら在庫があるだけ売れて残りは売り逃し。満足度で人気が動く
+function arrive(S, k, n, refMult, type, origin, rng) {
+  if (rng() < refuseRate(S, refMult, origin, type)) {
+    S.pop = Math.max(0, S.pop - PRICING.refusePop);
+    S.today.refused++; S.stats.refused++; S.year.refused++;
+    return { sold: 0, missed: 0, amt: 0, refused: true };
+  }
+  const sold = Math.min(n, S.fin[k]), missed = n - sold, amt = sold * salePrice(S, k);
+  if (sold === n) S.pop += POP.gain[type] * Math.pow(BASE * quality(S) / S.price, PRICING.popPrice);
   else if (sold === 0) S.pop = Math.max(0, S.pop - POP.miss);
   S.fin[k] -= sold;
   S.today.sold += sold; S.today.rev += amt; S.stats.sold += sold; S.stats.rev += amt; S.year.sold += sold; S.year.rev += amt; S.year.missed += missed;
@@ -233,7 +254,7 @@ export function mood(S) {
 
 /* ---------- 時間進行 ---------- */
 // hooks（すべて省略可）:
-//   sale(k, type, want, sold, origin)  客1人ごと（type＝客の種類、want＝欲しい個数、sold＝買えた個数、origin＝jp/cn/west）
+//   sale(k, type, want, sold, origin, refused)  客1人ごと（type＝客の種類、want＝欲しい個数、sold＝買えた個数、origin＝jp/cn/west、refused＝高いと断った）
 //   news()           その週のニュースがバナーに出たとき
 //   save()           週替わりの保存タイミング
 //   short(info)      資金ショート {cost, paid}
@@ -262,9 +283,9 @@ export function step(S, dd, hooks = {}, rng = Math.random) {
     // 需要（個）を1人あたりの平均個数で割った人数が来る
     const n = poisson(rate[k] / MEAN_BUY * dd, rng);
     for (let i = 0; i < n; i++) {
-      const b = rollBuyer(rng), r = arrive(S, k, b.want, mult[k], b.type);
+      const b = rollBuyer(rng), origin = rollOrigin(org[k], rng), r = arrive(S, k, b.want, mult[k], b.type, origin, rng);
       amt += r.amt;
-      if (hooks.sale) hooks.sale(k, b.type, b.want, r.sold, rollOrigin(org[k], rng));
+      if (hooks.sale) hooks.sale(k, b.type, b.want, r.sold, origin, r.refused);
     }
   }
   if (amt) S.recv.push({ amt, due: S.t + PAY_DELAY });
@@ -277,8 +298,8 @@ export function step(S, dd, hooks = {}, rng = Math.random) {
 export function newDay(S, nd, hooks = {}, rng = Math.random) {
   const td = S.today;
   S.day = nd;
-  const lines = [`${fullDateStr(nd - 1)}：販売${cnt(td.sold)}個 ${yen(td.rev)}${td.missed ? `／売り逃し${cnt(td.missed)}個` : ''}`];
-  S.today = { sold: 0, missed: 0, rev: 0 };
+  const lines = [`${fullDateStr(nd - 1)}：販売${cnt(td.sold)}個 ${yen(td.rev)}${td.missed ? `／売り逃し${cnt(td.missed)}個` : ''}${td.refused ? `／「高い」と断られた${cnt(td.refused)}人` : ''}`];
+  S.today = { sold: 0, missed: 0, rev: 0, refused: 0 };
   let short = null, hot = [];
   if (nd % WEEKS === 0) {
     const base = monthly(S, nd - 1), cost = base + billsTotal(S); // 終わった月（先週まで）の家賃で払う
@@ -293,7 +314,7 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
     const tax = Math.round(Math.max(0, S.year.rev - S.year.cost) * TAX_RATE / 10000) * 10000;
     yearEnd = { year: nd / YEAR, ...S.year, pop: popStars(S), tax };
     S.history.push(yearEnd);
-    S.year = { sold: 0, missed: 0, rev: 0, cost: 0 };
+    S.year = { sold: 0, missed: 0, rev: 0, cost: 0, refused: 0 };
     if (tax > 0 && nd < TOTAL) { S.bills.push({ name: '税金', amt: tax }); hot.push(`${yearEnd.year}年目の税金 ${yen(tax)} を来月末に納める`); }
   }
   if (S.strikes >= 3 || nd >= TOTAL) {
@@ -330,16 +351,28 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
 }
 
 /* ---------- プレイヤー操作 ---------- */
-export const buyQty = S => Math.max(0, Math.min(BUY_N, S.sup, whFree(S), Math.floor(S.cash / matPrice(S))));
-// 仕入れる（limit を渡すとその数まで）。買えなければ null
-export function buy(S, limit = Infinity) {
-  const n = Math.min(buyQty(S), Math.floor(limit));
-  if (n < 1) return null;
-  const cost = n * matPrice(S);
+// 仕入れ：1回に S.lot 個ちょうど買う（まとめ買いほど1個が安い）。足りない分だけ減らして買うことはしない
+export const lotMult = n => (LOTS.find(([q]) => q === n) ?? [n, 1])[1];
+export const lotPrice = (S, n = S.lot) => Math.round(matPrice(S) * lotMult(n) / PRICE_UNIT) * PRICE_UNIT; // 素材1個の値段
+export const buyCost = (S, n = S.lot) => n * lotPrice(S, n);
+// 買えない理由（買えるなら ''）
+export function buyBlockReason(S, n = S.lot) {
+  if (S.sup < n) return marketTarget(S, S.day).cap === 0 ? '物流ストップ中' : S.sup < 1 ? '今週は入荷終了' : `今週はあと${S.sup}個まで`;
+  if (whFree(S) < n) return '倉庫に入らない';
+  if (S.cash < buyCost(S, n)) return 'お金が足りない';
+  return '';
+}
+export const canBuy = (S, n = S.lot) => !S.over && !buyBlockReason(S, n);
+export function buy(S, n = S.lot) {
+  if (!canBuy(S, n)) return null;
+  const cost = buyCost(S, n);
   S.cash -= cost; S.mat += n; S.sup -= n; S.year.cost += cost;
   return { n, cost };
 }
-export const buyBlockReason = S => S.sup < 1 ? (marketTarget(S, S.day).cap === 0 ? '物流ストップ中' : '今週は入荷終了') : whFree(S) < 1 ? '倉庫が満杯' : 'お金が足りない';
+// 売値を決める（PRICING.min〜max、step 刻み）
+export function setPrice(S, p) {
+  S.price = Math.min(PRICING.max, Math.max(PRICING.min, Math.round(p / PRICING.step) * PRICING.step));
+}
 export function prodReason(S) {
   if (S.color === 'stop') return '停止中';
   if (colorStopped(S, S.color)) return `${COLORS[S.color].name}は生産停止`;

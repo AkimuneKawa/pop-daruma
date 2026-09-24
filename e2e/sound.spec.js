@@ -15,10 +15,10 @@ test('音：タップで有効になり、BGMは動いている間だけ、切�
   // 売れた・売り切れ・仕入れ・投資の音を鳴らしてもエラーにならない
   await page.evaluate(() => { const s = window.__daruma.sound; s.sold(1); s.sold(40); s.soldOut(); s.buy(); s.invest(); s.hire(); s.news(); s.short(); s.end(false); });
 
-  // 一時停止で BGM が止まる
-  await page.click('.spd[data-s="0"]');
+  // タイトルに戻ると BGM が止まり、つづきからで再開する
+  await page.click('#bTitle');
   expect((await st()).bgm).toBeNull();
-  await page.click('.spd[data-s="1"]');
+  await page.click('#tCont');
   expect((await st()).bgm).toBe('normal');
 
   // 年末商戦に入るとお祭りの曲に替わる

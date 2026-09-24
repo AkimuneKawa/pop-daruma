@@ -94,9 +94,9 @@ canvas.ico{width:1.35em;height:1.35em}
 /* controls */
 .ctrl{flex:none;display:grid;grid-template-columns:1.45fr .72fr .72fr 1.25fr;gap:.35rem;margin-top:.1rem}
 .btn{font:inherit;color:#fff6e6;border:.18rem solid var(--line);box-shadow:0 .28rem 0 var(--line);cursor:pointer;touch-action:manipulation;position:relative}
-.btn:active:not(:disabled),.spd:active{transform:translateY(.28rem);box-shadow:0 0 0 var(--line)}
+.btn:active:not(:disabled){transform:translateY(.28rem);box-shadow:0 0 0 var(--line)}
 .btn:disabled{filter:grayscale(.7);opacity:.6;cursor:not-allowed}
-.btn:focus-visible,.cbtn:focus-visible,.spd:focus-visible,.newsbar:focus-visible{outline:.2rem dashed var(--blue);outline-offset:.15rem}
+.btn:focus-visible,.cbtn:focus-visible,.newsbar:focus-visible{outline:.2rem dashed var(--blue);outline-offset:.15rem}
 .buy{background:var(--red);display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.35rem .3rem}
 .buy canvas.ico{width:2.6rem;height:2.6rem}
 .buy .bt{white-space:nowrap;font-size:1.3rem;line-height:1.1;text-align:left}.buy .bt small{display:block;font-size:1.05rem}
@@ -104,11 +104,9 @@ canvas.ico{width:1.35em;height:1.35em}
 .inv canvas.ico{width:2rem;height:2rem}
 .inv.ad{background:#f7b7cf}
 .inv.ad.on{animation:adOn 1s steps(2) infinite}@keyframes adOn{50%{background:#fbe38a}}
-.spdbox{background:var(--mint);border:.18rem solid var(--line);box-shadow:.2rem .2rem 0 var(--line);padding:.15rem .3rem .35rem;text-align:center}
-.spdbox .t{color:#fff6e6;font-size:.9rem;text-shadow:.08rem .08rem 0 var(--mint2)}
-.spdrow{display:grid;grid-template-columns:repeat(3,1fr);gap:.25rem;margin-top:.15rem}
-.spd{font:inherit;font-size:1.1rem;background:var(--paper);color:var(--ink);border:.16rem solid var(--line);box-shadow:0 .2rem 0 var(--line);padding:.25rem 0;cursor:pointer}
-.spd.on{background:var(--yellow)}
+.mgmt{background:var(--mint);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;padding:.2rem}
+.mgmt .mt{font-size:1.25rem;text-shadow:.08rem .08rem 0 var(--mint2)}
+.mgmt .mp{font-size:.8rem;white-space:nowrap}.mgmt .mp b{font-weight:normal;font-size:1rem;margin-left:.2rem}
 .foot{display:flex;justify-content:center;gap:1.4rem;flex:none;margin-top:-.1rem}
 .link{font:inherit;font-size:.85rem;background:none;border:none;color:var(--muted);text-decoration:underline;cursor:pointer;padding:.1rem .2rem}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .link{color:#cdbb9c}}
@@ -133,6 +131,13 @@ canvas.ico{width:1.35em;height:1.35em}
 .res{width:100%;border-collapse:collapse;margin:8px 0}
 .res td{padding:3px 0;border-bottom:2px dashed var(--gray)}.res td:last-child{text-align:right;white-space:nowrap;padding-left:8px}
 .rank{font-size:20px;text-align:center}
+.pricebox{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0}
+.pricebox b{font-weight:normal;font-size:26px;min-width:6.5em;text-align:center}
+.pricebox .mbtn{font-size:20px;padding:4px 14px}
+.lots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}
+.lots .mbtn{font-size:14px;padding:6px 4px;background:var(--paper)}
+.lots .mbtn.on{background:var(--yellow)}
+.lots small{display:block;font-size:11px;color:var(--muted)}
 .entry{margin:8px 0;padding:8px;border:2px dashed var(--gray);text-align:center}
 .entry label{display:block;font-size:14px;margin-bottom:6px}
 .entry input{display:block;width:100%;margin-top:4px;font:inherit;font-size:16px;padding:6px 8px;border:3px solid var(--line);background:#fff;color:var(--ink)}
@@ -160,4 +165,4 @@ canvas.ico{width:1.35em;height:1.35em}
 .titlebox .tdar{width:112px;height:112px;image-rendering:pixelated;image-rendering:crisp-edges}
 .toast{position:fixed;left:50%;top:calc(30% + env(safe-area-inset-top,0px));transform:translateX(-50%);background:#2a2320;color:#fff6e6;border:3px solid #f5c742;padding:8px 14px;font-size:14px;z-index:20;display:none;max-width:90vw;white-space:nowrap}
 .toast.show{display:block}
-@media (prefers-reduced-motion:reduce){.newsbar.flash .nt{animation:none}.btn:active:not(:disabled),.spd:active,.cbtn.on{transform:none}}
+@media (prefers-reduced-motion:reduce){.newsbar.flash .nt{animation:none}.btn:active:not(:disabled),.cbtn.on{transform:none}}

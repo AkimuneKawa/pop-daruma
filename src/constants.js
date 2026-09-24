@@ -19,13 +19,16 @@ export const MONTHS = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', 
 // 時間：1ステップ＝1週（実時間 STEP_SEC 秒）。1ヶ月＝4週、1年＝48週（4月第1週〜3月第4週）、3年で決算
 export const WEEKS = 4, YEAR = 48, YEARS = 3, TOTAL = YEAR * YEARS, STEP_SEC = 15;
 // 年ごとの変化（1年目・2年目・3年目）。評判が広まって通常の客足が増え、家賃も上がる
-export const GROWTH = [1.0, 1.3, 1.6], RENT_BY_YEAR = [500000, 600000, 700000];
+export const GROWTH = [1.0, 1.3, 1.6], RENT_BY_YEAR = [280000, 336000, 392000];
 export const DRY = 1, PAY_DELAY = 1; // 乾燥にかかる週数、売上が入金されるまでの週数
+// 基本の客足（v1 の「1日あたり」単位。QTY 倍して個/週）。作れる量に対して多すぎると安売りが意味をなくすので、
+// 標準の値段なら中くらいの工房で足り、安売りすれば大きな工房が活きる量にする
+export const DEMAND = { base: 1.4 };
 // 月別の需要倍率（4月始まり）。11〜12月が年末商戦、1月は年明けで客足が急に減る
 export const MM = [1.0, 0.8, 0.7, 0.8, 0.9, 0.8, 1.2, 3.5, 4.5, 0.5, 1.0, 0.8];
 // 年末商戦（毎年11〜12月＝年内28〜35週）。売値が上がり、素材の入荷が細り、職人の求人が止まる。
 // 10月後半（年内26週）から素材の相場が上がり始める
-export const RUSH = { start: 28, end: 36, price: 1.4, preStart: 26 };
+export const RUSH = { start: 28, end: 36, price: 1.4, preStart: 26 }; // price＝客の基準の値段の倍率
 // 素材の相場。季節やイベントで決まる目標に向かって1週に up/down ずつ動く「流れ」に、毎週の値動き（揺れ）をかける。
 // 揺れは平均に戻ろうとする乱数：揺れ＝keep×先週の揺れ＋ばらつき sd。相場は min〜max 倍に収める
 export const MARKET_STEP = { up: 0.5, down: 0.3 };
@@ -48,12 +51,30 @@ export const STOCK_VALUE = 1200; // 決算時の完成品1個の評価額
 
 // 数量
 export const SELF_RATE = 2 * QTY; // 本人の生産数（個/週）
-export const BUY_N = 500; // 1タップで仕入れる数
 export const START_MAT = 600; // 開店時の素材
 // 開店時の完成品。全色そろえておき、客の色の割合に合わせて1週半ほど売り切れない量（上手に作れば売り逃しゼロもありうる）
 export const START_STOCK = { red: 100, gold: 30, pink: 60, sky: 50, green: 50 };
 export const RACK_BASE = 300, RACK_STEP = 200; // 乾燥棚の容量と1段階の増分（乾燥1週ぶんの生産に合わせる）
 export const WH_BASE = 1200, WH_STEP = 900; // 倉庫の容量と1段階の増分
+
+// 売値と「買わない」客。売値はプレイヤーが決める（経営メニュー）。
+// 客には「このくらいなら払う」基準の値段（BASE×色×季節・イベント×工房の腕前）があり、
+// 断る確率＝1/(1+exp(-slope×(売値/基準−mid)))。値段を気にしない客（indifferent）は断らない。
+// 安売りの評判で客足は（BASE×腕前/売値）^draw 倍（drawMin〜drawMax）になる
+export const PRICING = {
+  min: 1500, max: 6000, step: 250, start: 3000,
+  mid: 1.5, slope: 5,
+  indifferent: { jp: 0.1, cn: 0.6, west: 0.6 }, // 国籍ごとの、値段を気にしない客の割合（ふつうのお客さん）
+  // まとめ買いの小売店・業者は国籍に関係なく値段に敏感（値段を気にしない人はいない。基準より少し高いだけで断る）
+  bulk: { shop: { mid: 1.1, slope: 8 }, trader: { mid: 1.0, slope: 10 } },
+  skillRef: 0.25, // 工房の腕前が★2から1上がるごとに基準の値段が25%上がる（断られにくくなる）
+  draw: 1.0, drawMin: 0.5, drawMax: 1.8,
+  popPrice: 1, // 満足した客で上がる人気は（BASE×腕前/売値）^popPrice 倍（安いとお得感で口コミが広がる）
+  refusePop: 0.2, // 「高い」と断った客1人で下がる人気
+};
+// 1回の仕入れ量と、素材1個の値段にかかる倍率（まとめ買いほど安い）
+export const LOTS = [[100, 1.1], [300, 1.0], [500, 0.95], [1000, 0.85], [2000, 0.75], [3000, 0.68]];
+export const START_LOT = 300; // 開店時の倉庫の空き（約300個）に入る量
 
 // 客の種類。p＝割合、min〜max＝1人が欲しがる個数。在庫が足りなければあるだけ買い、残りは売り逃し
 export const BUYERS = [
@@ -100,20 +121,20 @@ export const CRAFT = {
 export const RACK_UP = [960000, 1440000, 1920000, 2400000, 3000000, 3600000, 4300000, 5000000, 6000000, 7000000, 8200000, 9500000, 11000000, 12500000];
 export const WH_UP = [600000, 960000, 1440000, 2000000, 2600000, 3300000, 4200000, 5200000, 6400000, 7800000];
 // 3年後の総資産による称号（上から判定）
-export const RANKS = [[45000000, 'だるま大名'], [30000000, '名工'], [20000000, '一人前'], [0, '見習い']];
+export const RANKS = [[25000000, 'だるま大名'], [18000000, '名工'], [10000000, '一人前'], [0, '見習い']];
 // 税金：年の利益（売上−素材・家賃・給料・宣伝・投資・契約金）にかかり、翌年最初の月末に払う
 export const TAX_RATE = 0.3;
 // 突発の出費：年に1回、予告なしに起きる。修理代は「家賃の min〜max か月分＋設備投資額の ACCIDENT_EQUIP 割」を月末に払う
 // （設備が大きい店ほど修理代も高い）
-export const ACCIDENT_EQUIP = 0.04;
+export const ACCIDENT_EQUIP = 0.3;
 export const ACCIDENTS = [
   { name: '乾燥機が壊れた', min: 2, max: 5 },
   { name: '工房が雨漏りした', min: 2, max: 4 },
   { name: '配送トラックが事故を起こした', min: 3, max: 5 },
 ];
-export const REVENUE_GOAL = 300000000; // どこかの年でこの年商を超えたら達成（上級者の目標）
+export const REVENUE_GOAL = 150000000; // どこかの年でこの年商を超えたら達成（上級者の目標）
 // ランキングの版。バランスを大きく変えたら上げる（版ごとに別のランキングになる）
-export const RANKING_VERSION = '2026-09';
+export const RANKING_VERSION = '2026-09b'; // 「買わない客」と売値の導入でバランスが変わったので上げた
 
 // セーブ。v1＝元の単一HTML、v2＝金額1200倍、v3＝数量1200倍、v4＝数量120倍（1日単位）、v5＝いま（1週単位・売値3,000円）
 export const SAVE_KEY = 'popdaruma_rt_v5';
