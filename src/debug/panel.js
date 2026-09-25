@@ -6,6 +6,7 @@ import * as sim from '../sim.js';
 import { STRATEGIES } from '../strategies.js';
 import { PARAMS, PRESETS, applyPreset, changedValues, isDefault, saveValues, loadValues, importValues } from './params.js';
 import { JUMPS, jumpTo, fastForward } from './jump.js';
+import * as sound from '../audio.js';
 
 const CSS = `
 #dbgTab{position:fixed;left:0;top:38%;z-index:40;writing-mode:vertical-rl;font:12px/1 monospace;letter-spacing:.1em;padding:8px 4px;background:#2a2320;color:#fbe38a;border:2px solid #fbe38a;border-left:none;cursor:pointer;opacity:.85}
@@ -60,7 +61,7 @@ function say(t) { msg = t; }
 
 function draw() {
   const S = game.getS();
-  const tabs = { jump: 'ジャンプ', params: 'パラメータ', state: '状態', presets: 'テンプレ', branch: 'ブランチ' };
+  const tabs = { jump: 'ジャンプ', params: 'パラメータ', state: '状態', presets: 'テンプレ', sound: '音', branch: 'ブランチ' };
   root.innerHTML = `<header><b>DEBUG</b><button id="dPause">${game.paused() ? '▶ 再開' : '❚❚ 止める'}</button><button id="dClose">×</button></header>
     <nav>${Object.entries(tabs).map(([k, v]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${v}</button>`).join('')}</nav>
     <div class="body"><div class="msg">${esc(msg)}</div>${S ? `<p class="note">いま：${fullDateStr(sim.curDay(S))}（${Math.floor(S.t)}週目）／所持金 ${yen(S.cash)}${S.debug ? '／デバッグプレイ中（ランキング登録なし）' : ''}</p>` : ''}${BODY[tab]()}</div>`;
@@ -106,6 +107,15 @@ const BODY = {
     <p class="note">いまのパラメータ（標準から変えた値だけ）を JSON で書き出します。貼り付けて読み込むこともできます。</p>
     <textarea id="dJson">${esc(JSON.stringify(changedValues(), null, 2))}</textarea>
     <div class="row"><button id="dImport">この JSON を読み込む</button></div>`,
+  sound: () => {
+    const tracks = Object.keys(sound.KEY_NAMES);
+    const monthName = { '4': '4月', '5-7': '5〜7月', '8-9': '8〜9月', '10': '10月', '11-12': '11〜12月', '1': '1月', '2': '2月', '3': '3月' };
+    const coins = Object.entries(sound.COIN_TIERS).map(([tier, label]) => `<h4>お金の音：${label}</h4><div class="row">${[0, 1, 2].map(v => `<button data-coin="${tier}:${v}">${['その1', 'その2', 'その3'][v]}</button>`).join('')}</div>`).join('');
+    const others = [['soldOut', '売り切れ'], ['refused', '「高い…」'], ['click', 'クリック'], ['buy', '仕入れ'], ['invest', '投資'], ['hire', '職人を雇う'], ['news', 'ニュース'], ['levelUp', '人気アップ'], ['ad', '宣伝'], ['short', '資金ショート'], ['end', '決算'], ['endBad', '閉店']];
+    return `<p class="note">効果音は流れている曲の調に合わせて鳴ります。調を選ぶと、その月の曲に合わせた音で試聴できます（曲と重ねて聞くなら「ジャンプ」でその月へ）。音の設定が「音：なし」だと鳴りません。</p>
+      <div class="row"><label>曲（調）</label><select id="dKey">${tracks.map(t => `<option value="${t}" ${t === sound.sfxTrackNow() ? 'selected' : ''}>${monthName[t]}（${sound.KEY_NAMES[t]}）</option>`).join('')}</select></div>
+      ${coins}<h4>そのほかの効果音</h4><div class="grid">${others.map(([id, label]) => `<button data-sfx="${id}">${label}</button>`).join('')}</div>`;
+  },
   branch: () => `<p>いまのブランチ：<code>${esc(BRANCH)}</code></p>
     <p class="note">ほかのブランチ（dev・feature・過去の版 release/vX.Y）を遊ぶには、ターミナルで次を実行し、表示された一覧から選びます。選んだブランチは別のフォルダに取り出してビルドするので、いまの作業には影響しません。</p>
     <p><code>npm run debug</code> → <a href="http://localhost:5180" target="_blank" rel="noopener">http://localhost:5180</a></p>
@@ -113,6 +123,12 @@ const BODY = {
 };
 
 const WIRE = {
+  sound: () => {
+    sound.unlock();
+    $('#dKey').onchange = () => sound.setSfxTrack($('#dKey').value);
+    root.querySelectorAll('[data-coin]').forEach(b => b.onclick = () => { sound.unlock(); const [tier, v] = b.dataset.coin.split(':'); sound.coin(tier, +v); });
+    root.querySelectorAll('[data-sfx]').forEach(b => b.onclick = () => { sound.unlock(); const id = b.dataset.sfx; if (id === 'end') sound.end(false); else if (id === 'endBad') sound.end(true); else sound[id](); });
+  },
   jump: () => {
     const strat = () => $('#dStrat').value;
     const go = week => {

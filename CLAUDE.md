@@ -74,11 +74,13 @@
 - バランスを大きく変えたら `constants.js` の `RANKING_VERSION` を上げる（版ごとに別のランキングになる）
 - 公開サイトの接続先は GitHub リポジトリの Variables（`VITE_SUPABASE_URL`・`VITE_SUPABASE_ANON_KEY`）。手元で試すときは `.env.local` に同じ名前で書く（git には入れない）
 - スコアはブラウザから送るので、改ざんを完全には防げない（テーブルの CHECK で明らかにおかしい値だけはじく）
-- e2e（`e2e/ranking.spec.js`）は疑似の Supabase（`page.route`）で動かす
+- e2e（`e2e/ranking.spec.js`）は疑似の Supabase（`page.route`）で動かす。e2e は専用ポート（5199）で毎回自分の開発サーバーを起動する（手元の `npm run dev` は本物の Supabase につながるので使い回さない）
 
 ## BGM の曲ファイル
 - `public/bgm/` に置く（ビルドで `dist/bgm/` にそのままコピーされる）。曲をもらったら 128kbps の mp3 に変換してから置く（例：`ffmpeg -i 元.mp3 -map_metadata -1 -codec:a libmp3lame -b:a 128k public/bgm/4.mp3`）。曲ごとの音量（ラウドネス）がそろっているかも確かめる
 - 月と曲の対応は `src/audio.js` の `TRACK_BY_MONTH`（4月始まり）
+- 効果音は流れている曲の調で鳴る（`TRACK_KEY`：曲ごとの主音・短調か・明るさ。曲を差し替えたら調を測り直す）。短調の曲では平行調の長調の音を使う。お金の音は売上額で小（1万円未満）・中（1万〜10万円）・大（10万円以上）の3段階×3種類（`COIN`）
+- 効果音はデバッグパネルの「音」タブで調を選んで試聴できる
 
 ## バージョンとアップデート履歴
 - 公開する変更をしたら、`src/changelog.js` の `CHANGELOG` の先頭に1件足す（プレイヤー向けの言葉で）。大きな変更は上1桁（2.x→3.0）、それ以外は下1桁（2.4→2.5）を上げる

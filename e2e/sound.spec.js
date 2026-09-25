@@ -40,3 +40,20 @@ test('音：タップで有効になり、BGMは動いている間だけその�
   await expect(page.locator('#bSound')).toHaveText('音：なし'); // 設定を覚えている
   expect(errs).toEqual([]);
 });
+
+test('効果音：曲の調に合わせて、お金の音9種類とほかの効果音がエラーなく鳴る（デバッグパネルの試聴）', async ({ page }) => {
+  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+  await page.reload();
+  await page.click('#tNew');
+  await page.click('#dbgTab');
+  await page.click('[data-tab="sound"]');
+  for (const t of ['4', '11-12', '1']) {
+    await page.selectOption('#dKey', t);
+    for (const b of await page.locator('[data-coin], [data-sfx]').all()) await b.click();
+  }
+  expect(await page.evaluate(() => window.__daruma.sound.sfxTrackNow())).toBe('1');
+  expect(errs).toEqual([]);
+});

@@ -23,7 +23,7 @@ const renderUI = () => {
 const hooks = {
   sale(k, type, want, sold, origin, refused) {
     addVisitor(k, type, want, sold, origin, refused);
-    if (sold > 0) sound.sold(sold); else sound.soldOut();
+    if (refused) sound.refused(); else if (sold > 0) sound.sold(sold * sim.salePrice(S, k)); else sound.soldOut();
   },
   news() { flashNews(); sound.news(); },
   save,
