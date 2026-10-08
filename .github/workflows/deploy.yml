@@ -4,6 +4,8 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+    # ワークフロー・CLAUDE.md・docs だけの変更では公開しない（遊ぶ人に見える変更がないので新しいバージョンにもしない）
+    paths-ignore: ['.github/**', 'CLAUDE.md', 'docs/**']
   workflow_dispatch:
 
 permissions:

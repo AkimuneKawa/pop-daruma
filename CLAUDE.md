@@ -73,6 +73,7 @@
 - 保存先は Supabase。テーブルは `supabase/schema.sql`。3年後の総資産（`score`）と最高の年商（`best_year`）の2つの順位をタブで切り替える。閉店したプレイは登録できない
 - バランスを大きく変えたら `constants.js` の `RANKING_VERSION` を上げる（版ごとに別のランキングになる）
 - 公開サイトの接続先は GitHub リポジトリの Variables（`VITE_SUPABASE_URL`・`VITE_SUPABASE_ANON_KEY`）。手元で試すときは `.env.local` に同じ名前で書く（git には入れない）
+- Supabase の無料プランは1週間ほど利用がないと自動で一時停止する（停止中はアドレスごと引けなくなり、ランキングが「読み込めませんでした」になる）。`keepalive.yml` が3日おきにランキングを読んで防ぐ。失敗の通知が来たら Supabase のダッシュボードで「Resume project」。なお GitHub は、リポジトリに60日更新がないと決まった時刻に動くワークフローを止めるので、長く放置するときは注意
 - スコアはブラウザから送るので、改ざんを完全には防げない（テーブルの CHECK で明らかにおかしい値だけはじく）
 - e2e（`e2e/ranking.spec.js`）は疑似の Supabase（`page.route`）で動かす。e2e は専用ポート（5199）で毎回自分の開発サーバーを起動する（手元の `npm run dev` は本物の Supabase につながるので使い回さない）
 
@@ -96,6 +97,7 @@
   1. dev で `src/changelog.js` の先頭に新しいバージョンを1件足す（main に取り込む＝新しいバージョンの発行）
   2. dev のテストが通っていることを確かめ、`git checkout main && git merge --ff-only dev && git push && git checkout dev`（取り込めないときは勝手に解決せずオーナーに確認）
   3. `deploy.yml` がバージョンを確認（公開済みの版番号なら止まる）→ テスト → ビルド → 公開 → `release/vX.Y` を作る
+- 遊ぶ人に見える変更がない運用の変更（`.github/**`・`CLAUDE.md`・`docs/**` だけ）は、新しいバージョンにせず main に取り込んでよい。`deploy.yml` の `paths-ignore` で公開処理は走らない（決まった時刻に動くワークフローは main に入れないと動かないため）
 - **前の版に戻す**：
   - 一時的に：GitHub の Actions →「Rollback（前の版を公開）」→ 版（例：2.1）を入れて実行。`release/v2.1` の中身を公開する。main は変わらないので、次のリリースで最新版に戻る
   - main ごと戻す：dev で `git checkout release/vX.Y -- . && git commit` のように中身をその版に戻し、changelog に新しいバージョン（「ver X.Y の内容に戻した」）を足してリリースする

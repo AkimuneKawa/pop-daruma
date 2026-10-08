@@ -1,0 +1,27 @@
+name: Keep Supabase awake（ランキングの自動停止を防ぐ）
+
+# Supabase の無料プランは、1週間ほど利用がないとプロジェクトを自動で一時停止する（停止中はランキングが見られない）。
+# 3日おきにランキングを1回読みにいって、利用があるとみなされるようにする。読めなければ失敗にして、GitHub の通知で気づけるようにする
+on:
+  schedule:
+    - cron: '0 3 */3 * *' # 3日おき 3:00（UTC）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ランキングを読む
+        env:
+          URL: ${{ vars.VITE_SUPABASE_URL }}
+          KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          code=$(curl -s -o body.json -w '%{http_code}' --max-time 30 "$URL/rest/v1/scores?select=id&limit=1" -H "apikey: $KEY" -H "Authorization: Bearer $KEY")
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::ランキング（Supabase）が応答しません（HTTP $code）。ダッシュボードで一時停止されていないか確認してください"
+            exit 1
+          fi
