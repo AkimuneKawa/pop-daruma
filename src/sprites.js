@@ -1,8 +1,8 @@
 // ドット絵データ。1文字＝1色（パレットで対応付け）、'.' は透明
 import { INK, COLORS, GRAY } from './constants.js';
 
-export const BIG = ["....KKKKKK....","..KKBBBBBBKK..",".KBHHBBBBBBBK.",".KBWWWWWWWWBK.","KBWKKWWWWKKWBK","KBWWKWWWWKWWBK","KBWWWWKKWWWWBK","KBBWKKWWKKWBBK","KBBBWWWWWWBBBK","KBBBBGGGGBBBBK","KBBBBGDDGBBBBK",".KBBBBGGBBBBK.","..KKDDDDDDKK..","....KKKKKK...."];
-export const MINI = ["..KKKK..",".KBBBBK.","KBWWWWBK","KBKWWKBK","KBBWWBBK","KBBGGBBK",".KDDDDK.","..KKKK.."];
+export const BIG = ["....KKKKKK....","..KKBBBBBBKK..",".KBHHBBBBBBBK.",".KBWWWWWWWWBK.","KBWKKWWWWKKWBK","KBWWKWWWWKWWBK","KBWWWWKKWWWWBK","KBBWKKWWKKWBBK","KBBBWWWWWWBBBK","KBBBWWWWWWBBBK","KBBBWLWLLWBBBK",".KBBBWWWWBBBK.","..KKDDDDDDKK..","....KKKKKK...."];
+export const MINI = ["..KKKK..",".KBBBBK.","KBWWWWBK","KBKWWKBK","KBBWWBBK","KBWLLWBK",".KDDDDK.","..KKKK.."];
 export const PERSON = ["...KKKK...","..KHHHHK..",".KRRRRRRK.",".KHSSSSHK.",".KSKSSKSK.",".KSSSSSSK.","..KSSSSK..",".KAAAAAAK.","KAAPPPPAAK","KSAPPPPASK",".KAPPPPAK.",".KAAAAAAK.",".KAK..KAK.",".KKK..KKK."];
 export const BACK = ["...KKKK...","..KHHHHK..",".KHHHHHHK.",".KHHHHHHK.",".KHHHHHHK.",".KSHHHHSK.","..KSSSSK..",".KAAAAAAK.","KAAAAAAAAK","KSAAAAAASK",".KAAAAAAK.",".KAAAAAAK.",".KPK..KPK.",".KKK..KKK."];
 export const ICONS = {
@@ -37,7 +37,7 @@ export function spr(map, pal, x, y, s, g) {
 }
 export function darPal(k) {
   const c = k === 'gray' ? GRAY : COLORS[k];
-  return { K: INK, B: c.b, D: c.d, H: c.h, W: '#fff6e6', G: c.g };
+  return { K: INK, B: c.b, D: c.d, H: c.h, W: '#fff6e6', G: c.g, L: '#1f3b8f' }; // L＝お腹のロゴ（TOKYO LOLLIPOP 風）
 }
 // data-spr / data-ico 属性を持つ canvas にドット絵を描く
 export function paintStatic(root) {

@@ -16,7 +16,6 @@ export function buildStatic() {
   paintStatic(document);
 }
 
-let pipCtx = null;
 let lastPop = { S: null, ratio: 0, stars: 1 };
 function flashGauge(g, mark, dir) {
   g.classList.remove('up', 'down'); void g.offsetWidth; g.classList.add(dir);
@@ -25,7 +24,6 @@ function flashGauge(g, mark, dir) {
 }
 export function renderUI(S, speed) {
   if (!S) return;
-  pipCtx ??= $('#prodPips').getContext('2d');
   const d = sim.curDay(S);
   $('#date').textContent = dateStr(d);
   $('#left').textContent = `${yearOf(d)}年目 残${YEAR - (d % YEAR)}週`; // 今年の残り
@@ -56,10 +54,15 @@ export function renderUI(S, speed) {
   $('#bAd').classList.toggle('on', S.ads.some(a => S.t < a.until));
   // 生産スピードのだるまピップ
   const reason = sim.prodReason(S), r = sim.prodRate(S), filled = reason ? 0 : Math.min(6, Math.max(1, Math.round(r / PIP)));
-  pipCtx.clearRect(0, 0, 54, 8);
-  for (let i = 0; i < 6; i++) spr(MINI, darPal(i < filled ? (S.color === 'stop' ? 'red' : S.color) : 'gray'), i * 9 + 1, 0, 1, pipCtx);
+  // 生産スピード：6目盛りのゲージと Lv（止まっているときは理由を出す）
+  const lvNow = Math.min(6, Math.max(1, Math.round(r / PIP)));
+  const pg = $('#prodGauge');
+  if (pg.childElementCount !== 6) pg.innerHTML = '<i></i>'.repeat(6);
+  [...pg.children].forEach((el, i) => el.classList.toggle('on', i < filled));
+  pg.style.display = reason ? 'none' : '';
+  $('#sProdLv').textContent = reason ? '' : `Lv.${lvNow}`;
   $('#sProdTxt').textContent = reason;
-  $('#prodPips').style.display = reason ? 'none' : '';
+  $('#sCust').textContent = `${cnt(S.today.cust ?? 0)}人`;
   $('#sSold').textContent = cnt(S.today.sold) + '個';
   $('#sMiss').textContent = cnt(S.today.missed) + '個';
   $('#sWh').textContent = `${cnt(Math.max(0, sim.whFree(S)))} / ${cnt(sim.whCap(S))}`;

@@ -80,31 +80,46 @@ const sp = (map, pal, x, y, s = 1) => spr(map, pal, x, y, s, ctx);
 function drawBackground() {
   // canvas 全体（平行移動前の座標）
   ctx.setTransform(SC, 0, 0, SC, 0, 0);
-  R(0, 0, W, H, '#f3e2bf');
-  for (let x = 2; x < W; x += 7) R(x, 0, 1, oy + FLOOR, '#ead5a8');
-  R(0, 0, W, 5, '#6b4424'); R(0, 5, W, 1, INK);
-  if (oy > 12) { for (let x = ox + 20; x < ox + BW; x += 54) { R(x, 6, 3, oy - 4, '#8a5a2b'); } R(0, oy, W, 3, '#8a5a2b'); R(0, oy + 3, W, 1, '#6b4424'); }
+  // 木の板張りの壁
+  R(0, 0, W, H, '#e8cf9e');
+  for (let x = 3; x < W; x += 9) R(x, 0, 1, oy + FLOOR, '#d6b97f');
+  R(0, 0, W, oy + 26, '#efd9ab'); for (let x = 3; x < W; x += 9) R(x, 0, 1, oy + 26, '#dcc08a');
+  // 天井の梁
+  R(0, 0, W, oy + 6, '#5a3518'); R(0, oy + 6, W, 1, INK); R(0, oy + 3, W, 1, '#7a4a22');
+  if (oy > 12) for (let x = ox + 20; x < ox + BW; x += 54) R(x, 0, 3, oy, '#6b4424');
+  R(0, oy + 17, W, 4, '#7a4a22'); R(0, oy + 21, W, 1, '#4a2a12'); // 横の梁
   // 腰板
-  R(0, oy + 118, W, 12, '#c99558'); R(0, oy + 118, W, 1, INK);
-  for (let x = 4; x < W; x += 12) R(x, oy + 119, 1, 11, '#a8743e');
-  // 床
+  R(0, oy + 118, W, 12, '#b88452'); R(0, oy + 118, W, 1, INK);
+  for (let x = 4; x < W; x += 12) R(x, oy + 119, 1, 11, '#9a6a3a');
+  // 青いカーペットの床
   R(0, oy + FLOOR - 1, W, 1, INK);
-  for (let y = oy + FLOOR; y < H; y += 8) for (let x = 0; x < W; x += 8) R(x, y, 8, 8, (((x + y - oy) >> 3) & 1) ? '#5fc4a0' : '#8fd6b4');
+  for (let y = oy + FLOOR; y < H; y += 8) for (let x = 0; x < W; x += 8) R(x, y, 8, 8, (((x + y - oy) >> 3) & 1) ? '#2f5fc4' : '#3567cf');
+  for (let y = oy + FLOOR + 3; y < H; y += 8) for (let x = (y >> 3) % 2 ? 2 : 6; x < W; x += 8) R(x, y, 1, 1, '#4a7ad8');
   // 柱
-  R(ox - 4, oy, 4, FLOOR - 1, '#8a5a2b'); R(ox + BW, oy, 4, FLOOR - 1, '#8a5a2b');
+  R(ox - 4, oy, 4, FLOOR - 1, '#6b4424'); R(ox + BW, oy, 4, FLOOR - 1, '#6b4424');
 }
+// TOKYO LOLLIPOP 風のロゴ（のれん・段ボールに使う）
+function logo(cx, cy, size, c) {
+  ctx.font = `bold ${size}px "DotGothic16",sans-serif`; ctx.fillStyle = c; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('TDLP', cx, cy);
+}
+// 中央の紺ののれん
 function drawNoren() {
-  R(3, 6, 128, 2, '#6b4424'); R(3, 6, 2, 4, INK); R(129, 6, 2, 4, INK);
-  R(6, 8, 122, 16, '#d8382a'); R(6, 8, 122, 1, '#a82418');
-  for (let x = 26; x < 128; x += 20) R(x, 17, 1, 7, '#f3e2bf');
-  R(6, 24, 122, 1, '#a82418');
-  T('だるまは、しあわせをつくる', 66, 14, 8, '#fff6e6');
+  const x0 = 92, x1 = 164, y0 = 24, y1 = 72;
+  R(x0 - 3, y0 - 2, x1 - x0 + 6, 3, '#5a3518'); R(x0 - 4, y0 - 3, 3, 5, INK); R(x1 + 1, y0 - 3, 3, 5, INK);
+  R(x0, y0 + 1, x1 - x0, y1 - y0, INK); R(x0 + 1, y0 + 1, x1 - x0 - 2, y1 - y0 - 1, '#1f3f9a');
+  R(x0 + 1, y0 + 1, x1 - x0 - 2, 2, '#2c51b5');
+  R(128, y0 + 30, 1, y1 - y0 - 29, '#17306f'); // 下半分の切れ目
+  logo(128.5, y0 + 17, 15, '#fff8e8');
+  T('TOKYO', 128.5, y0 + 31, 7, '#fff8e8'); T('LOLLIPOP', 128.5, y0 + 39, 7, '#fff8e8');
 }
+// 黒い笠のペンダントランプと、下に落ちる光
 function drawLamps() {
-  for (const x of [150, 176, 202]) {
+  for (const x of [28, 74, 182, 230]) {
     R(x, -oy, 1, 9 + oy, INK);
-    for (let r = 0; r < 5; r++) R(x - 2 - r, 9 + r, 5 + r * 2, 1, r === 0 ? '#a82418' : '#d8382a');
-    R(x - 7, 14, 15, 1, INK); R(x - 1, 15, 3, 2, '#fbe38a');
+    for (let r = 0; r < 5; r++) R(x - 2 - r, 9 + r, 5 + r * 2, 1, r === 0 ? '#3a3a40' : '#202024');
+    R(x - 7, 14, 15, 1, INK); R(x - 2, 15, 5, 2, '#fff1b0');
+    ctx.globalAlpha = 0.12; for (let r = 0; r < 18; r++) R(x - 6 - r, 17 + r, 13 + r * 2, 1, '#fff1b0'); ctx.globalAlpha = 1;
   }
 }
 function drawRack(fr) {
@@ -134,29 +149,6 @@ function drawRack(fr) {
   R(4, 119, 52, 10, INK); R(5, 120, 50, 8, '#fbf1dc');
   T(`乾燥 ${cnt(used)}個`, 30, 124.5, 7, INK);
 }
-function drawScroll() {
-  R(62, 24, 20, 2, '#6b4424'); R(71, 20, 2, 4, INK);
-  R(63, 26, 18, 56, '#2f63d6'); R(64, 27, 16, 54, '#fff6e6');
-  ['七', '転', '八', '起'].forEach((c, i) => T(c, 72, 33 + i * 10, 9, INK));
-  sp(MINI, darPal('red'), 68, 72);
-  R(62, 82, 20, 2, '#6b4424');
-}
-function drawQuilt() {
-  const x0 = 88, y0 = 28, n = 6, s = 7;
-  R(x0 - 2, y0 - 3, n * s + 4, 2, '#6b4424');
-  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-    const c = QC[(i * 3 + j * 7 + i * j) % QC.length];
-    R(x0 + i * s, y0 + j * s, s, s, c);
-    if ((i + j) % 3 === 0) { R(x0 + i * s + 2, y0 + j * s + 3, 3, 1, '#fff6e6'); R(x0 + i * s + 3, y0 + j * s + 2, 1, 3, '#fff6e6'); }
-  }
-  R(x0, y0, n * s, 1, INK); R(x0, y0 + n * s, n * s + 1, 1, INK); R(x0, y0, 1, n * s, INK); R(x0 + n * s, y0, 1, n * s, INK);
-}
-function drawMirror() {
-  const cx = 142, cy = 48;
-  for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) circ(Math.round(cx + Math.cos(a) * 7), Math.round(cy + Math.sin(a) * 19), 3, '#f0782a');
-  ell(cx, cy, 7, 19, '#f0782a'); ell(cx, cy, 5, 16, '#9cc7ef');
-  R(cx - 3, cy - 10, 1, 8, '#ffffff'); R(cx - 2, cy - 12, 1, 2, '#ffffff');
-}
 function drawTV(fr) {
   const d = Math.min(S.day, TOTAL - 1);
   R(160, 56, 52, 3, '#8a5a2b'); R(160, 59, 52, 1, INK); R(164, 60, 2, 5, '#6b4424'); R(206, 60, 2, 5, '#6b4424');
@@ -174,10 +166,6 @@ function drawTV(fr) {
   // 吊り鉢植え
   R(206, 52, 6, 5, '#b7773a');
   for (let i = 0; i < 7; i++) { R(210 + (i % 2) * 2, 56 + i * 3, 3, 2, '#3aae78'); R(208 + ((i + 1) % 2) * 3, 57 + i * 3, 2, 2, '#2f8a58'); }
-}
-function drawSign() {
-  R(238, 6, 15, 52, INK); R(239, 7, 13, 50, '#fbf1dc');
-  ['笑', 'う', '門', 'に', '福'].forEach((c, i) => T(c, 245.5, 13 + i * 9.5, 8, i === 4 ? '#d8382a' : INK));
 }
 function drawShelf() {
   const cx = 226, x0 = 198, x1 = 254, top = 76;
@@ -222,7 +210,7 @@ function drawWorkers(fr, working) {
 function drawMaterials() {
   const boxes = Math.min(4, Math.ceil(S.mat / (8 * DRAW_UNIT)));
   const pos = [[0, 152], [24, 152], [48, 152], [10, 136]];
-  for (let i = 0; i < boxes; i++) { const [x, y] = pos[i]; R(x, y, 23, 17, INK); R(x + 1, y + 1, 21, 15, '#c99558'); R(x + 1, y + 6, 21, 1, '#a8743e'); R(x + 10, y + 1, 3, 5, '#a8743e'); T('だるま', x + 11.5, y + 11.5, 6, '#5a3a1e'); }
+  for (let i = 0; i < boxes; i++) { const [x, y] = pos[i]; R(x, y, 23, 17, INK); R(x + 1, y + 1, 21, 15, '#c99558'); R(x + 1, y + 6, 21, 1, '#a8743e'); R(x + 10, y + 1, 3, 5, '#a8743e'); logo(x + 11.5, y + 11.5, 6, '#1f3b8f'); }
   const cans = Math.min(4, Math.ceil(S.mat / (4 * DRAW_UNIT)));
   const cc = ['#d8382a', '#3aae78', '#2f63d6', '#f5c742'];
   for (let i = 0; i < cans; i++) { const x = 76 + i * 13, y = 136; R(x, y, 11, 13, INK); R(x + 1, y + 1, 9, 11, cc[i]); R(x + 1, y + 1, 9, 2, '#fff6e6'); R(x + 1, y + 3, 9, 1, INK); }
@@ -253,7 +241,7 @@ function drawVisitors(fr) {
     if (v.st === 'out' && v.sold >= 5) { const w = v.type === 'trader' ? 12 : 8; R(x + 14, y + 2, w, 8, INK); R(x + 15, y + 3, w - 2, 6, '#c99558'); }
   }
   // ロープ
-  R(116, 156, 4, 20, '#8a5a2b');
+  R(116, 152, 4, 24, '#202024'); R(115, 150, 6, 3, '#3a3a40'); // 黒い支柱
   for (let x = 120; x < W - ox; x += 6) R(x, 160, 6, 2, ((x / 6) | 0) % 2 ? '#fff6e6' : '#d8382a');
   drawBubbles(list);
 }
@@ -292,14 +280,14 @@ function drawBunting(cols) {
   }
 }
 
-// 描画順は HANDOFF.md 第5章のとおり
+// 描画順：背景 → ランプ → のれん → 乾燥棚 → テレビ → 飾り棚 → 職人と作業台 → 素材 → 客とロープ → 旗飾り
 export function drawScene(t, state, speed) {
   S = state;
   if (!S || !cv || !cv.width) return;
   const fr = Math.floor(t / 300), d = Math.min(S.day, TOTAL - 1);
   drawBackground();
   ctx.setTransform(SC, 0, 0, SC, SC * ox, SC * oy);
-  drawNoren(); drawLamps(); drawRack(fr); drawScroll(); drawQuilt(); drawMirror(); drawTV(fr); drawSign(); drawShelf();
+  drawLamps(); drawNoren(); drawRack(fr); drawTV(fr); drawShelf();
   const working = speed > 0 && !prodReason(S);
   drawWorkers(fr, working); drawMaterials(); drawVisitors(fr);
   // 旗飾り：季節イベント（桜・春節）の色、なければ年末商戦の紅白

@@ -71,7 +71,7 @@ export function newGame(rng = Math.random) {
   const S = {
     t: 0, day: 0, cash: BALANCE.startCash, mat: START_MAT, fin: { ...START_STOCK }, rack: [], color: 'red', prog: 0,
     rackLv: 0, whLv: 0, staff: [], recv: [], m: 1, sup: 0, noise: 1, events: genEvents(rng), strikes: 0, lowMorale: false,
-    stats: { sold: 0, missed: 0, rev: 0, refused: 0 }, today: { sold: 0, missed: 0, rev: 0, refused: 0 }, news: [], banner: '', over: false,
+    stats: { sold: 0, missed: 0, rev: 0, refused: 0 }, today: { sold: 0, missed: 0, rev: 0, refused: 0, cust: 0 }, news: [], banner: '', over: false,
     year: { sold: 0, missed: 0, rev: 0, cost: 0, refused: 0 }, history: [], // year＝今年の成績（cost＝経費）、history＝終わった年の成績
     bills: [], // 次の月末に家賃・給料と一緒に払う出費 {name, amt}（税金・修理代）
     pop: 0, popStars: 1, pool: [], ads: [], price: PRICING.start, lot: START_LOT,
@@ -195,6 +195,7 @@ function rollOrigin(w, rng) {
 // 色 k を n 個欲しい type の客が来る。値段が高いと断り（人気が少し下がる）、
 // 買うなら在庫があるだけ売れて残りは売り逃し。満足度で人気が動く
 function arrive(S, k, n, refMult, type, origin, rng) {
+  S.today.cust = (S.today.cust ?? 0) + 1; // 今週の来客（買わなかった人も数える）
   if (rng() < refuseRate(S, refMult, origin, type)) {
     S.pop = Math.max(0, S.pop - PRICING.refusePop);
     S.today.refused++; S.stats.refused++; S.year.refused++;
@@ -299,7 +300,7 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
   const td = S.today;
   S.day = nd;
   const lines = [`${fullDateStr(nd - 1)}：販売${cnt(td.sold)}個 ${yen(td.rev)}${td.missed ? `／売り逃し${cnt(td.missed)}個` : ''}${td.refused ? `／「高い」と断られた${cnt(td.refused)}人` : ''}`];
-  S.today = { sold: 0, missed: 0, rev: 0, refused: 0 };
+  S.today = { sold: 0, missed: 0, rev: 0, refused: 0, cust: 0 };
   let short = null, hot = [];
   if (nd % WEEKS === 0) {
     const base = monthly(S, nd - 1), cost = base + billsTotal(S); // 終わった月（先週まで）の家賃で払う

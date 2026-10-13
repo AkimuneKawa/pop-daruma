@@ -9,6 +9,7 @@ import { initScene, drawScene, moveVisitors, addVisitor, clearVisitors } from '.
 import * as sound from './audio.js';
 import * as ranking from './ranking.js';
 import { CHANGELOG, VERSION } from './changelog.js';
+import { drawTitleLogo } from './titlelogo.js';
 
 let S = null;
 let speed = 0;
@@ -201,6 +202,10 @@ function showTitle() {
   $('#tVer').textContent = `ver ${VERSION}`;
   $('#tNewMark').hidden = seenVersion() === VERSION;
   $('#title').classList.add('show');
+  // 看板ロゴ（ドット絵のフォントが読み込まれてから描く）
+  const draw = () => drawTitleLogo($('#tLogo'));
+  draw();
+  document.fonts?.load('23px "DotGothic16"').then(draw, () => {});
 }
 // バージョン a が b より新しいか（「2.10」＞「2.4」になるよう、区切りごとに数で比べる）
 function newerThan(a, b) {
