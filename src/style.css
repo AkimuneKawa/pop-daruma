@@ -11,8 +11,9 @@
 :root[data-theme="dark"]{--bg:#1a45a8;--bg2:#163c93;}
 html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
 *,*::before,*::after{box-sizing:border-box}
-body{margin:0;height:100%;overflow:hidden;background:var(--bg) repeating-linear-gradient(45deg,transparent 0 .35rem,var(--bg2) .35rem .5rem);color:var(--ink);font-family:"DotGothic16","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;line-height:1.25;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
-canvas.ico,canvas.dar{image-rendering:pixelated;image-rendering:crisp-edges;flex:none}
+body{margin:0;height:100%;overflow:hidden;background:var(--bg) repeating-linear-gradient(45deg,transparent 0 .35rem,var(--bg2) .35rem .5rem);color:var(--ink);font-family:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;font-weight:800;line-height:1.25;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+canvas.ico,canvas.dar{flex:none}
+canvas.px{image-rendering:pixelated;image-rendering:crisp-edges} /* 素材のないドット絵アイコン */
 canvas.ico{width:1.35em;height:1.35em}
 .app{height:100%;max-width:500px;margin:0 auto;display:flex;flex-direction:column;justify-content:space-between;gap:.4rem;padding:.4rem .45rem .5rem}
 .box{background:var(--paper);border:.18rem solid var(--line);box-shadow:.2rem .2rem 0 var(--line)}
@@ -24,17 +25,17 @@ canvas.ico{width:1.35em;height:1.35em}
 .logo .ls{display:block;margin:.15rem auto 0;width:max-content;background:#2a2320;color:var(--yellow);font-size:.68rem;padding:0 .35rem;white-space:nowrap}
 .logo canvas.dar{width:2.1rem;height:2.1rem}
 .datebox{display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.2rem}
-.datebox b{display:block;white-space:nowrap;font-weight:normal;font-size:1.3rem}
+.datebox b{display:block;white-space:nowrap;font-weight:800;font-size:1.3rem}
 .datebox small{display:block;white-space:nowrap;font-size:.85rem;color:var(--muted)}
 .cashbox{padding:.35rem .6rem;display:flex;flex-direction:column;justify-content:center}
 .cashbox .cl{display:flex;align-items:center;gap:.3rem;font-size:.95rem}
-.cashbox b{white-space:nowrap;font-weight:normal;font-size:1.65rem;text-align:right;letter-spacing:.02em}
+.cashbox b{white-space:nowrap;font-weight:800;font-size:1.65rem;text-align:right;letter-spacing:.02em}
 .subbar{flex:none;display:grid;grid-template-columns:auto auto 1fr;align-items:center;padding:.25rem .45rem;font-size:.95rem;gap:.3rem}
 .subbar span{display:flex;align-items:center;gap:.25rem;white-space:nowrap;min-width:0}
 .subbar #dueAmt{margin-left:.2rem}
 .subbar .sep{width:.15rem;height:1.2rem;background:var(--line)}
 .subbar em{font-style:normal;color:var(--red);font-size:1.05rem}
-.subbar b{font-weight:normal;margin-left:auto;font-size:.98rem}
+.subbar b{font-weight:800;margin-left:auto;font-size:.98rem}
 
 /* stage */
 .stage{position:relative;flex:1 1 auto;max-height:calc(min(100vw - .9rem,500px - .9rem)*.82);min-height:6rem;border:.18rem solid var(--line);box-shadow:.2rem .2rem 0 var(--line);background:#f3e2bf;overflow:hidden}
@@ -42,7 +43,7 @@ canvas.ico{width:1.35em;height:1.35em}
 .ptag{position:absolute;left:.4rem;top:.4rem;background:var(--blue);color:#fff6e6;border:.15rem solid var(--line);padding:.1rem .5rem;font-size:.95rem;display:none}
 .ptag.show{display:block}
 .custbox{position:absolute;right:.4rem;top:.4rem;background:rgba(23,32,77,.92);color:#fff8e8;border:.15rem solid #fff8e8;padding:.15rem .5rem .2rem;text-align:center;line-height:1.1}
-.custbox small{display:block;font-size:.72rem;opacity:.85}.custbox b{font-weight:normal;font-size:1.1rem;white-space:nowrap}
+.custbox small{display:block;font-size:.72rem;opacity:.85}.custbox b{font-weight:800;font-size:1.1rem;white-space:nowrap}
 
 /* news */
 .newsbar{flex:none;display:flex;align-items:center;gap:.4rem;padding:.25rem .4rem;cursor:pointer;font:inherit;color:inherit;text-align:left;width:100%}
@@ -56,9 +57,9 @@ canvas.ico{width:1.35em;height:1.35em}
 /* panels：左「お店の状況」・右「素材の相場と在庫」の2つ */
 .panels{flex:none;display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:.35rem}
 .panel{flex:none;padding:0;min-width:0}
-.panel h3{margin:0;color:var(--navy);border-bottom:.14rem solid var(--line);font-weight:normal;font-size:1.05rem;padding:.2rem .45rem;display:flex;align-items:center;gap:.3rem;white-space:nowrap}
+.panel h3{margin:0;color:var(--navy);border-bottom:.14rem solid var(--line);font-weight:800;font-size:1.05rem;padding:.2rem .45rem;display:flex;align-items:center;gap:.3rem;white-space:nowrap}
 .panel h3 small{margin-left:auto;font-size:.78rem;color:var(--muted)}
-.panel h3 .hv{margin-left:auto;font-weight:normal;font-size:1rem;color:var(--ink)}
+.panel h3 .hv{margin-left:auto;font-weight:800;font-size:1rem;color:var(--ink)}
 .panel h3 .pop{font-size:.78rem;display:flex;align-items:center;gap:.2rem;color:var(--ink)}
 .gauge{position:relative;display:block;width:3.4rem;height:.75rem;background:#c9d3ef;border:.13rem solid var(--line);overflow:hidden}
 .gauge::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(20% - .1rem),rgba(23,32,77,.55) calc(20% - .1rem) 20%)}
@@ -66,11 +67,11 @@ canvas.ico{width:1.35em;height:1.35em}
 .gauge.up{animation:gUp .9s steps(3)}.gauge.down{animation:gDown .9s steps(3)}
 @keyframes gUp{0%,66%{box-shadow:0 0 0 .2rem #fbe38a}}@keyframes gDown{0%,66%{box-shadow:0 0 0 .2rem #f19a8e}}
 .pop em{font-style:normal;font-size:.78rem;min-width:1.6rem}
-.pop b{font-weight:normal;width:.7rem;font-size:.78rem;color:#e0a21a}.pop b.dn{color:var(--red)}
+.pop b{font-weight:800;width:.7rem;font-size:.78rem;color:#e0a21a}.pop b.dn{color:var(--red)}
 .pb{padding:.2rem .45rem .35rem}
 .sr{white-space:nowrap;display:flex;align-items:center;gap:.3rem;font-size:.9rem;padding:.16rem 0;border-bottom:.1rem dashed var(--gray);min-height:1.7rem}
 .sr:last-child{border-bottom:none}
-.sr b,.sr .sv{margin-left:auto;font-weight:normal;font-size:1.05rem;display:flex;align-items:center;gap:.25rem}
+.sr b,.sr .sv{margin-left:auto;font-weight:800;font-size:1.05rem;display:flex;align-items:center;gap:.25rem}
 .sr .sv em{font-style:normal;font-size:.8rem}
 .red{color:var(--red)}
 /* 生産スピードのゲージ（6目盛り） */
@@ -78,14 +79,14 @@ canvas.ico{width:1.35em;height:1.35em}
 .pgauge i{display:block;width:.42rem;height:.6rem;background:#2f63d6;opacity:.25}
 .pgauge i.on{background:#f5c742;opacity:1}
 .sh{display:flex;align-items:center;gap:.3rem;font-size:.9rem;margin-top:.15rem}
-.sh b{font-weight:normal;margin-left:auto;font-size:.9rem}
+.sh b{font-weight:800;margin-left:auto;font-size:.9rem}
 .mk{display:flex;gap:.2rem;margin:.25rem 0 .3rem}
 .mk span{flex:1;text-align:center;font-size:.8rem;padding:.2rem 0;border:.13rem solid var(--gray);color:var(--gray);background:#f3efe6}
 .mk span.on{color:#fff8e8;border-color:var(--line)}
 #mk0.on{background:#3aae78}#mk1.on{background:var(--navy)}#mk2.on{background:var(--red)}
 .stock{display:grid;grid-template-columns:repeat(5,1fr);text-align:center;margin-top:.15rem}
 .stock canvas.dar{width:2rem;height:2rem;display:block;margin:0 auto}
-.stock b{font-weight:normal;font-size:.95rem}
+.stock b{font-weight:800;font-size:.95rem}
 
 /* colors */
 .colors{display:grid;grid-template-columns:repeat(6,1fr);gap:.3rem;padding:.4rem}
@@ -113,7 +114,7 @@ canvas.ico{width:1.35em;height:1.35em}
 .inv.ad.on{animation:adOn 1s steps(2) infinite}@keyframes adOn{50%{background:#fbe38a}}
 .mgmt{background:var(--red);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;padding:.2rem}
 .mgmt .mt{font-size:1.25rem;text-shadow:.08rem .08rem 0 var(--red2)}
-.mgmt .mp{font-size:.8rem;white-space:nowrap}.mgmt .mp b{font-weight:normal;font-size:1rem;margin-left:.2rem}
+.mgmt .mp{font-size:.8rem;white-space:nowrap}.mgmt .mp b{font-weight:800;font-size:1rem;margin-left:.2rem}
 .foot{display:flex;justify-content:center;gap:1.4rem;flex:none;margin-top:-.1rem}
 .link{font:inherit;font-size:.85rem;background:none;border:none;color:#dfe6ff;text-decoration:underline;cursor:pointer;padding:.1rem .2rem}
 .dialog .link{color:var(--muted)}
@@ -122,7 +123,7 @@ canvas.ico{width:1.35em;height:1.35em}
 .overlay{position:fixed;inset:0;background:rgba(24,18,14,.6);display:none;align-items:center;justify-content:center;padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px));z-index:10}
 .overlay.show{display:flex}
 .dialog{position:relative;background:var(--paper);color:var(--ink);border:3px solid var(--line);box-shadow:6px 6px 0 var(--line);width:100%;max-width:420px;max-height:100%;overflow:auto;padding:14px;font-size:15px}
-.dialog h2{margin:0 0 6px;font-size:20px;font-weight:normal}
+.dialog h2{margin:0 0 6px;font-size:20px;font-weight:800}
 .dialog p{margin:6px 0}
 .dialog .sub{font-size:13px;color:var(--muted)}
 .x{position:absolute;top:6px;right:8px;font:inherit;font-size:22px;background:none;border:none;color:var(--ink);cursor:pointer}
@@ -139,7 +140,7 @@ canvas.ico{width:1.35em;height:1.35em}
 .res td{padding:3px 0;border-bottom:2px dashed var(--gray)}.res td:last-child{text-align:right;white-space:nowrap;padding-left:8px}
 .rank{font-size:20px;text-align:center}
 .pricebox{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0}
-.pricebox b{font-weight:normal;font-size:26px;min-width:6.5em;text-align:center}
+.pricebox b{font-weight:800;font-size:26px;min-width:6.5em;text-align:center}
 .pricebox .mbtn{font-size:20px;padding:4px 14px}
 .lots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}
 .lots .mbtn{font-size:14px;padding:6px 4px;background:var(--paper)}
@@ -159,9 +160,9 @@ canvas.ico{width:1.35em;height:1.35em}
 .rank-list li:nth-child(1) .no,.rank-list li:nth-child(2) .no,.rank-list li:nth-child(3) .no{color:var(--red);font-size:17px}
 .rank-list .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rank-list .nm small{margin-left:6px;font-size:12px;color:var(--muted)}
-.rank-list b{font-weight:normal;white-space:nowrap}
-.mh{margin:12px 0 2px;font-size:16px;font-weight:normal;border-bottom:3px solid var(--line);padding-bottom:2px}.mh small{font-size:12px;color:var(--muted);margin-left:6px}
-.craft .cn{display:block;font-weight:normal}.craft .cs{display:block;font-size:13px;white-space:nowrap}.craft small{display:block}
+.rank-list b{font-weight:800;white-space:nowrap}
+.mh{margin:12px 0 2px;font-size:16px;font-weight:800;border-bottom:3px solid var(--line);padding-bottom:2px}.mh small{font-size:12px;color:var(--muted);margin-left:6px}
+.craft .cn{display:block;font-weight:800}.craft .cs{display:block;font-size:13px;white-space:nowrap}.craft small{display:block}
 .st{color:#e2a21a;letter-spacing:-.05em;margin-right:6px}
 .mbtn.sm{font-size:13px;padding:6px 8px;white-space:nowrap}
 .mbtn small{font-size:12px}
@@ -169,13 +170,20 @@ canvas.ico{width:1.35em;height:1.35em}
 .log p{margin:4px 0;font-size:14px;border-bottom:1px dashed var(--gray);padding-bottom:4px}
 .titlebox{text-align:center;background:var(--bg) repeating-linear-gradient(45deg,transparent 0 8px,var(--bg2) 8px 11px);color:#fff8e8;border-color:#fff8e8}
 .titlebox .sub{color:#dfe6ff}.titlebox .link{color:#dfe6ff}.titlebox .ver{color:#b9c6f3}
-.tlogo{display:block;width:100%;max-width:400px;margin:0 auto 6px;aspect-ratio:200/120;image-rendering:pixelated;image-rendering:crisp-edges}
+.tlogow{position:relative;width:100%;max-width:400px;margin:0 auto 6px;container-type:inline-size;font-size:inherit;font-weight:800}
+.tsign{display:block;width:100%;aspect-ratio:900/394}
+/* 看板の絵（文字なし）の上に字を重ねる。位置は絵の中の割合 */
+.tlogow span{position:absolute;white-space:nowrap;line-height:1;transform:translate(-50%,-50%)}
+.tname{left:49.7%;top:65.7%;font-size:10cqw;color:#fff3d6;letter-spacing:.02em;-webkit-text-stroke:.9cqw #2a1a10;paint-order:stroke fill}
+.tname em{font-style:normal;color:#f5c742}
+.trib{left:49.4%;top:89%;color:#1d2147;font-size:3.9cqw;letter-spacing:.02em}
+.tkai{left:16%;top:30%;font-size:6.5cqw;color:#d8382a;background:#fff3d6;border:.6cqw solid #2a1a10;padding:.8cqw 1.6cqw;transform:translate(-50%,-50%) rotate(-6deg)}
 .titlebox .logo{display:inline-flex;margin:4px 0 10px;font-size:18px}
 .tlinks{display:flex;justify-content:center;gap:18px;margin-top:10px}
 .newmark[hidden]{display:none}
 .newmark{display:inline-block;margin-left:4px;padding:0 4px;background:var(--red);color:#fff6e6;font-size:11px;text-decoration:none;vertical-align:1px}
 .ver{margin:8px 0 0;font-size:12px;color:var(--muted)}
-.changes h3{margin:12px 0 2px;font-size:16px;font-weight:normal;border-bottom:3px solid var(--line);padding-bottom:2px}
+.changes h3{margin:12px 0 2px;font-size:16px;font-weight:800;border-bottom:3px solid var(--line);padding-bottom:2px}
 .changes h3 small{font-size:12px;color:var(--muted);margin-left:6px}
 .changes h3 .newmark{font-size:11px}
 .changes ul{padding-left:18px;margin:4px 0}.changes li{font-size:14px;margin:3px 0}
@@ -183,3 +191,16 @@ canvas.ico{width:1.35em;height:1.35em}
 .toast{position:fixed;left:50%;top:calc(30% + env(safe-area-inset-top,0px));transform:translateX(-50%);background:#2a2320;color:#fff6e6;border:3px solid #f5c742;padding:8px 14px;font-size:14px;z-index:20;display:none;max-width:90vw;white-space:nowrap}
 .toast.show{display:block}
 @media (prefers-reduced-motion:reduce){.newsbar.flash .nt{animation:none}.btn:active:not(:disabled),.cbtn.on{transform:none}}
+
+/* チュートリアル：照らした所以外を暗くし、吹き出しで説明する */
+.tut{position:fixed;inset:0;z-index:15;pointer-events:none}
+.tut-hole{position:fixed;border:.2rem solid var(--yellow);border-radius:.3rem;box-shadow:0 0 0 200vmax rgba(10,16,40,.62);transition:all .25s ease;animation:tutp 1.2s ease-in-out infinite}
+@keyframes tutp{50%{border-color:#fff8e8}}
+.tut-box{position:fixed;left:50%;transform:translateX(-50%);width:min(26rem,calc(100vw - 1.6rem));background:var(--paper);color:var(--ink);border:.2rem solid var(--line);box-shadow:.3rem .3rem 0 var(--line);padding:.6rem .8rem;font-size:1.1rem;line-height:1.45;pointer-events:auto}
+.tut-box p{margin:0 0 .4rem}
+.tut-box .tut-n{font-size:.8rem;color:var(--muted);margin:0}
+.tut-b{display:flex;align-items:center;justify-content:space-between;gap:.6rem}
+.tut-box .link{color:var(--muted);font-size:.95rem}
+.tut-box .mbtn{font-size:1.1rem;padding:.35rem 1.2rem}
+.tut-tap{color:var(--red);font-size:1.05rem;animation:fl .8s steps(2) infinite}
+.tut-on .ptag{display:none!important}

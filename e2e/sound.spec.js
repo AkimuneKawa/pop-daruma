@@ -8,9 +8,10 @@ test('音：タップで有効になり、BGMは動いている間だけその�
   await page.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
   await page.reload();
   await page.click('#tNew');
+  await page.click('#tutNo'); // チュートリアルはスキップ
   await page.waitForTimeout(800);
   const st = () => page.evaluate(() => window.__daruma.sound.debugState());
-  expect(await st()).toEqual({ ctx: 'running', bgm: '4' }); // 4月の曲
+  expect(await st()).toEqual({ ctx: 'running', bgm: '1' }); // 開店は1月なので1月の曲
 
   // 売れた・売り切れ・仕入れ・投資の音を鳴らしてもエラーにならない
   await page.evaluate(() => { const s = window.__daruma.sound; s.sold(1); s.sold(40); s.soldOut(); s.buy(); s.invest(); s.hire(); s.news(); s.short(); s.end(false); });
@@ -19,14 +20,14 @@ test('音：タップで有効になり、BGMは動いている間だけその�
   await page.click('#bTitle');
   expect((await st()).bgm).toBeNull();
   await page.click('#tCont');
-  expect((await st()).bgm).toBe('4');
+  expect((await st()).bgm).toBe('1');
 
   // 11月（年末商戦）になると 11-12月の曲に切り替わる
-  await page.evaluate(() => { const S = window.__daruma.S; S.t = 29.1; S.day = 29; });
+  await page.evaluate(() => { const S = window.__daruma.S; S.t = 41.1; S.day = 41; });
   await page.waitForTimeout(600);
   expect((await st()).bgm).toBe('11-12');
-  // 1月は 1月の曲
-  await page.evaluate(() => { const S = window.__daruma.S; S.t = 36.1; S.day = 36; });
+  // 翌年の1月は 1月の曲
+  await page.evaluate(() => { const S = window.__daruma.S; S.t = 48.1; S.day = 48; });
   await page.waitForTimeout(600);
   expect((await st()).bgm).toBe('1');
 
@@ -48,6 +49,7 @@ test('効果音：曲の調に合わせて、お金の音9種類とほかの効�
   await page.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
   await page.reload();
   await page.click('#tNew');
+  await page.click('#tutNo'); // チュートリアルはスキップ
   await page.click('#dbgTab');
   await page.click('[data-tab="sound"]');
   for (const t of ['4', '11-12', '1']) {

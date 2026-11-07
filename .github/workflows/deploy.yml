@@ -1,6 +1,7 @@
-name: Deploy to GitHub Pages
+name: Deploy（Vercel に公開）
 
-# main に入った（dev から取り込んだ）ら、新しいバージョンとして公開し、版ブランチ release/vX.Y を作る
+# main に入った（dev から取り込んだ）ら、新しいバージョンとして Vercel（https://darumaya-densetsu.vercel.app）に公開し、
+# 版ブランチ release/vX.Y を作る。古いアドレス（GitHub Pages）には引っ越しの案内ページ（pages/、セーブを引き継いで移動）を出す
 on:
   push:
     branches: [main]
@@ -51,23 +52,33 @@ jobs:
           # ランキング（Supabase）の接続先。リポジトリの Variables に設定する（公開用の anon キーなので秘密ではない）
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
+      # Vercel の pop-daruma に公開する（ビルド済みの dist をそのまま出す）。
+      # VERCEL_TOKEN は Secrets、VERCEL_ORG_ID・VERCEL_PROJECT_ID は Variables に設定する
+      - name: Vercel に公開
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: npx --yes vercel@65.12.1 deploy dist --prod --yes --token "$VERCEL_TOKEN"
 
-  deploy:
+  # 古いアドレス（GitHub Pages）は引っ越しの案内ページにする
+  redirect:
     needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
       - id: deployment
         uses: actions/deploy-pages@v4
 
   # 公開できたら、その時点の main から版ブランチを作る（いつでもこの版に戻せるように）
   release-branch:
-    needs: [build, deploy]
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -1,6 +1,6 @@
 // ゲームのシミュレーション本体。DOM に依存しない。
 // 状態 S を引数で受け取り、画面側への通知は hooks 経由で行う。
-import { COLORS, CK, TOTAL, YEAR, YEARS, GROWTH, RENT_BY_YEAR, DRY, PAY_DELAY, WEEKS, MARKET_STEP, MM, BALANCE, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, PRICE_UNIT, RANKS, REVENUE_GOAL, QTY, START_MAT, START_STOCK, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE, ADS, MARKET_SWING, MARKET_EVENT_SCALE, ACCIDENTS, PRICING, LOTS, START_LOT, DEMAND } from './constants.js';
+import { COLORS, CK, TOTAL, YEAR, YEARS, GROWTH, RENT_BY_YEAR, DRY, PAY_DELAY, WEEKS, MARKET_STEP, MM, BALANCE, SELF_RATE, CRAFT, RACK_UP, WH_UP, FLAVOR, PRICE_UNIT, RANKS, REVENUE_GOAL, QTY, START_MAT, START_STOCK, RACK_BASE, RACK_STEP, WH_BASE, WH_STEP, BUYERS, MEAN_BUY, POP, SHARE, RUSH, ORIGIN_BASE, ADS, MARKET_SWING, MARKET_EVENT_SCALE, ACCIDENTS, PRICING, LOTS, START_LOT, DEMAND, TAX_DUE } from './constants.js';
 import { rint, pick, yen, cnt, poisson, monthOf, dateStr, fullDateStr, weekOfYear, yearOf } from './util.js';
 import { ROSTER, wageOf } from './roster.js';
 import { EVENT_TYPES, genEvents, demandOf, priceOf } from './events.js';
@@ -28,7 +28,9 @@ export const monthly = (S, d = S.day) => rentOf(d) + S.staff.reduce((a, c) => a 
 // これまでの設備投資額（乾燥棚と倉庫）
 export const equipValue = S => RACK_UP.slice(0, S.rackLv).reduce((a, b) => a + b, 0) + WH_UP.slice(0, S.whLv).reduce((a, b) => a + b, 0);
 // 次の月末に払う額（家賃・給料＋税金・修理代）
-export const billsTotal = S => (S.bills ?? []).reduce((a, b) => a + b.amt, 0);
+// bills は {name, amt, due?}。due＝払う月末の週（なければ次の月末）。upTo を省くと次の月末に払う分
+export const nextMonthEnd = S => (Math.floor(S.day / WEEKS) + 1) * WEEKS;
+export const billsTotal = (S, upTo = nextMonthEnd(S)) => (S.bills ?? []).reduce((a, b) => a + ((b.due ?? 0) <= upTo ? b.amt : 0), 0);
 export const dueTotal = S => monthly(S) + billsTotal(S);
 // 工房の腕前：本人と職人のうまさを、作る量で重み付けした平均
 export const teamSkill = S => {
@@ -73,12 +75,12 @@ export function newGame(rng = Math.random) {
     rackLv: 0, whLv: 0, staff: [], recv: [], m: 1, sup: 0, noise: 1, events: genEvents(rng), strikes: 0, lowMorale: false,
     stats: { sold: 0, missed: 0, rev: 0, refused: 0 }, today: { sold: 0, missed: 0, rev: 0, refused: 0, cust: 0 }, news: [], banner: '', over: false,
     year: { sold: 0, missed: 0, rev: 0, cost: 0, refused: 0 }, history: [], // year＝今年の成績（cost＝経費）、history＝終わった年の成績
-    bills: [], // 次の月末に家賃・給料と一緒に払う出費 {name, amt}（税金・修理代）
+    bills: [], // 月末に家賃・給料と一緒に払う出費 {name, amt, due?}（税金＝3月末・修理代＝次の月末）
     pop: 0, popStars: 1, pool: [], ads: [], price: PRICING.start, lot: START_LOT,
   };
   refreshPool(S, rng);
   updateMarket(S, true);
-  S.banner = '4月第1週、だるま堂 開店！素材を切らさないように';
+  S.banner = '1月第1週、だるま堂 開店！素材を切らさないように';
   S.news = [...dayNews(S, 0).map(t => ({ t })), { t: '職人が「作る色」のだるまを自動で作ります' }, { t: 'お客さんの欲しいだるまを切らさず売ると、人気が上がって客足が増えます' }, { t: '11月〜12月の年末商戦が一番の書き入れ時。11月からは素材も職人も足りなくなるので、10月までに仕込もう' }];
   return S;
 }
@@ -235,20 +237,18 @@ export function dayNews(S, d) {
     if (d === e.start + e.len) out.push(T.end(e));
   }
   const w = weekOfYear(d), y = yearOf(d);
-  if (w === 0 && y > 1) out.push(`${y}年目が始まった！評判が広まって客足が増えた。家賃は月${yen(RENT_BY_YEAR[Math.min(YEARS, y) - 1])}に値上がり`);
-  if (w === 24) out.push('10月。年末商戦に向けて在庫と素材を仕込む時期。11月からは素材も職人も足りなくなる');
+  if (w === 0 && y > 1) out.push(`${y}年目が始まった！年明けで客足はしばらく少ないが、評判は広まっている。家賃は月${yen(RENT_BY_YEAR[Math.min(YEARS, y) - 1])}に値上がり`);
+  if (w === 36) out.push('10月。年末商戦に向けて在庫と素材を仕込む時期。11月からは素材も職人も足りなくなる');
   if (w === RUSH.preStart) out.push('素材の問屋が年末に向けて値上げを始めた');
   if (w === RUSH.start) out.push('年末商戦開幕！あかだるまが飛ぶように売れる。素材の入荷は細り、職人の求人も止まった');
-  if (w === 32) out.push('12月。書き入れ時の本番！');
-  if (w === RUSH.end) out.push('年が明けた…客足がぱったり途絶えた。売れ残りを抱えすぎないように');
-  if (w === 44) out.push(y >= YEARS ? '最終月。3月第4週の営業終了で最終決算です' : `3月。今月末で${y}年目の決算です`);
+  if (w === 44) out.push(y >= YEARS ? '最終月の12月。書き入れ時の本番！12月第4週の営業終了で最終決算です' : `12月。書き入れ時の本番！今月末で${y}年目の決算。年が明けると客足がぱったり減るので、売れ残りに注意`);
   return out;
 }
 export function mood(S) {
   const d = curDay(S), act = activeEvents(S, d).filter(e => !EVENT_TYPES[e.type].silent);
   if (act.length) return EVENT_TYPES[act[act.length - 1].type].mood;
   if (inRush(d)) return '年末商戦！';
-  if (weekOfYear(d) >= RUSH.end && weekOfYear(d) < RUSH.end + WEEKS) return '年明けで閑散';
+  if (weekOfYear(d) < WEEKS) return '年明けで閑散';
   if (activeEvents(S, d, 'ann').length || inPreRush(d)) return '町がざわついています';
   return 'いつもの町';
 }
@@ -303,9 +303,9 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
   S.today = { sold: 0, missed: 0, rev: 0, refused: 0, cust: 0 };
   let short = null, hot = [];
   if (nd % WEEKS === 0) {
-    const base = monthly(S, nd - 1), cost = base + billsTotal(S); // 終わった月（先週まで）の家賃で払う
+    const base = monthly(S, nd - 1), cost = base + billsTotal(S, nd); // 終わった月（先週まで）の家賃で払う
     S.year.cost += base; // 税金・修理代は経費に入れない（税金の計算を単純にするため）
-    S.bills = [];
+    S.bills = S.bills.filter(b => (b.due ?? 0) > nd);
     if (S.cash >= cost) { S.cash -= cost; S.lowMorale = false; hot.push(`月末の支払い ${yen(cost)} を済ませた`); }
     else { const paid = S.cash; S.cash = 0; S.strikes++; S.lowMorale = S.staff.length > 0; hot.push(`資金ショート（${S.strikes}/3）`); short = { cost, paid }; }
   }
@@ -316,7 +316,7 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
     yearEnd = { year: nd / YEAR, ...S.year, pop: popStars(S), tax };
     S.history.push(yearEnd);
     S.year = { sold: 0, missed: 0, rev: 0, cost: 0, refused: 0 };
-    if (tax > 0 && nd < TOTAL) { S.bills.push({ name: '税金', amt: tax }); hot.push(`${yearEnd.year}年目の税金 ${yen(tax)} を来月末に納める`); }
+    if (tax > 0 && nd < TOTAL) { S.bills.push({ name: '税金', amt: tax, due: nd + TAX_DUE }); hot.push(`${yearEnd.year}年目の税金は ${yen(tax)}。3月末に納める`); }
   }
   if (S.strikes >= 3 || nd >= TOTAL) {
     S.news = [...hot, ...lines].map(t => ({ t })).concat(S.news).slice(0, 30);
@@ -334,6 +334,7 @@ export function newDay(S, nd, hooks = {}, rng = Math.random) {
     S.bills.push({ name: '修理代', amt });
     hot.push(`${A.name}！修理代 ${yen(amt)} を月末に払う`);
   }
+  if (nd % WEEKS === 0) for (const b of S.bills) if (b.due === nd + WEEKS) hot.push(`今月末は${b.name} ${yen(b.amt)} の支払いがある`);
   for (const a of S.ads) if (a.until <= nd && a.until > nd - 1) hot.push(`${ADS[a.id].name}の効果が切れた`);
   S.ads = S.ads.filter(a => a.until > nd);
   if (nd % CRAFT.poolEvery === 0) refreshPool(S, rng); // 求職者は毎週入れ替わる（ニュースにはしない）

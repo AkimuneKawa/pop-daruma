@@ -46,6 +46,7 @@ test('決算でランキングに登録し、順位と一覧が出る', async ({
 
   // 3年目の最後まで進めて決算
   await page.click('#tNew');
+  await page.click('#tutNo'); // チュートリアルはスキップ
   await page.evaluate(() => { const S = window.__daruma.S; S.t = 143.97; S.day = 143; S.cash = 25000000; S.history = [{ year: 1, rev: 90000000 }, { year: 2, rev: 200000000 }]; });
   await expect(page.locator('#rName')).toBeVisible({ timeout: 5000 });
   await page.fill('#rName', '<b>だるま太郎</b>だよ');

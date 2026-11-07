@@ -26,6 +26,7 @@ for (const vp of SIZES) for (const big of [false, true]) {
     await page.goto('/');
     await page.evaluate(() => document.fonts.ready);
     await page.click('#tNew');
+    await page.click('#tutNo'); // チュートリアルはスキップ
     if (big) await setWorstCase(page);
     await page.waitForTimeout(1500);
     await page.screenshot({ path: `e2e/screenshots/${vp.width}x${vp.height}${big ? '-big' : ''}.png` });

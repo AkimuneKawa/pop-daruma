@@ -201,8 +201,8 @@ export function end(bankrupt) {
 }
 
 /* ---------- BGM ---------- */
-// 月ごとの曲（public/bgm/*.mp3。ファイル名は流す月）。月の並びは MONTHS と同じ4月始まり（0＝4月〜11＝3月）
-const TRACK_BY_MONTH = ['4', '5-7', '5-7', '5-7', '8-9', '8-9', '10', '11-12', '11-12', '1', '2', '3'];
+// 月ごとの曲（public/bgm/*.mp3。ファイル名は流す月）。月の並びは MONTHS と同じ1月始まり（0＝1月〜11＝12月）
+const TRACK_BY_MONTH = ['1', '2', '3', '4', '5-7', '5-7', '5-7', '8-9', '8-9', '10', '11-12', '11-12'];
 export const trackForMonth = mo => TRACK_BY_MONTH[mo];
 const trackUrl = key => `${import.meta.env.BASE_URL}bgm/${key}.mp3`;
 const FADE = 1.5; // 曲を切り替えるときのフェード（秒）

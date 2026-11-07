@@ -1,6 +1,6 @@
 name: Rollback（前の版を公開）
 
-# Actions の画面から手で実行する。入力した版（release/vX.Y）の中身をビルドして公開する。
+# Actions の画面から手で実行する。入力した版（release/vX.Y）の中身をビルドして Vercel に公開する。
 # main は変えないので、次に dev を main に取り込むと最新版の公開に戻る
 on:
   workflow_dispatch:
@@ -11,8 +11,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -40,16 +38,9 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Vercel に公開
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: npx --yes vercel@65.12.1 deploy dist --prod --yes --token "$VERCEL_TOKEN"

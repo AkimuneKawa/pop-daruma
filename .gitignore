@@ -6,3 +6,5 @@ e2e/screenshots/
 .DS_Store
 .env.local
 .debug/
+.vercel
+.env*

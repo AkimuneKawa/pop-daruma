@@ -3,16 +3,27 @@ import { CK, TOTAL, YEAR, WEEKS, COLORS, POP, SELF_RATE, CRAFT, MARKET_LEVELS } 
 
 // 生産スピードのピップ1個あたりの生産量（素早さ★5を最大人数雇ったときにちょうど6個）
 const PIP = (SELF_RATE + CRAFT.max * 5 * CRAFT.ratePerSpeed) / 6;
-import { MINI, spr, darPal, paintStatic } from './sprites.js';
+import { ICONS, IPAL, spr } from './sprites.js';
+import { RECTS, paintPart } from './art.js';
 import { yen, cnt, dateStr, yearOf } from './util.js';
 import * as sim from './sim.js';
 
 export const $ = s => document.querySelector(s);
 
+// data-spr（だるま）・data-ico（アイコン）の canvas に絵を描く。素材のないアイコン（up・sad）はドット絵
+export function paintStatic(root) {
+  root.querySelectorAll('canvas[data-spr]').forEach(c => { c.width = c.height = 96; paintPart(c, 'daruma', c.dataset.spr); });
+  root.querySelectorAll('canvas[data-ico]').forEach(c => {
+    const k = c.dataset.ico;
+    if (RECTS.icons[k]) { c.width = c.height = 64; paintPart(c, 'icons', k); }
+    else { c.width = c.height = 9; c.classList.add('px'); spr(ICONS[k], IPAL, 0, 0, 1, c.getContext('2d')); }
+  });
+}
+
 // 色ボタン・在庫欄を生成してドット絵を塗る（起動時に1回）
 export function buildStatic() {
-  $('#colors').innerHTML = CK.map(k => `<button class="cbtn" data-c="${k}"><canvas class="dar" width="14" height="14" data-spr="${k}"></canvas>${COLORS[k].name}</button>`).join('') + `<button class="cbtn" data-c="stop"><span class="blank"></span>やめる</button>`;
-  $('#stock').innerHTML = CK.map(k => `<div><canvas class="dar" width="14" height="14" data-spr="${k}"></canvas><b id="st-${k}"></b></div>`).join('');
+  $('#colors').innerHTML = CK.map(k => `<button class="cbtn" data-c="${k}"><canvas class="dar" width="24" height="24" data-spr="${k}"></canvas>${COLORS[k].name}</button>`).join('') + `<button class="cbtn" data-c="stop"><span class="blank"></span>やめる</button>`;
+  $('#stock').innerHTML = CK.map(k => `<div><canvas class="dar" width="24" height="24" data-spr="${k}"></canvas><b id="st-${k}"></b></div>`).join('');
   paintStatic(document);
 }
 

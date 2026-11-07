@@ -6,12 +6,12 @@
 <title>開運！だるま屋伝説 〜夢のユニコーン企業編〜</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <div class="logo"><div><div class="lt">だるま屋伝説</div><span class="ls">夢のユニコーン企業編</span></div><canvas class="dar" width="14" height="14" data-spr="pink"></canvas></div>
+    <div class="logo"><div><div class="lt">だるま屋伝説</div><span class="ls">夢のユニコーン企業編</span></div><canvas class="dar" width="24" height="24" data-spr="pink"></canvas></div>
     <div class="box datebox"><canvas class="ico" data-ico="cal" width="9" height="9"></canvas><div><b id="date"></b><small id="left"></small></div></div>
     <div class="box cashbox"><div class="cl"><canvas class="ico" data-ico="coin" width="9" height="9"></canvas>所持金</div><b id="cash"></b></div>
   </header>
@@ -24,7 +24,7 @@
   <button class="box newsbar" id="newsbar" aria-label="ニュースの履歴を見る"><canvas class="ico" data-ico="tv" width="9" height="9"></canvas><span class="tag">ニュース</span><span class="nt" id="banner" aria-live="polite"></span><span class="mood" id="mood"></span></button>
   <div class="panels">
     <section class="box panel">
-      <h3><canvas class="dar ico" width="14" height="14" data-spr="red"></canvas>お店の状況<small class="pop" id="pop" title="">人気<span class="gauge" id="popG"><i id="popFill"></i></span><em id="popLv"></em><b id="popUp"></b></small></h3>
+      <h3><canvas class="dar ico" width="24" height="24" data-spr="red"></canvas>お店の状況<small class="pop" id="pop" title="">人気<span class="gauge" id="popG"><i id="popFill"></i></span><em id="popLv"></em><b id="popUp"></b></small></h3>
       <div class="pb">
         <div class="sr"><canvas class="ico" data-ico="gear" width="9" height="9"></canvas>生産スピード<span class="sv"><span class="pgauge" id="prodGauge"></span><em id="sProdLv"></em><em class="red" id="sProdTxt"></em></span></div>
         <div class="sr"><canvas class="ico" data-ico="chart" width="9" height="9"></canvas>今週の販売数<b id="sSold"></b></div>
@@ -58,7 +58,7 @@
 <div class="overlay" id="modal"><div class="dialog" id="dlg"></div></div>
 <div class="overlay show" id="title">
   <div class="dialog titlebox">
-    <canvas class="tlogo" id="tLogo" width="200" height="120" aria-label="開運！だるま屋伝説 〜夢のユニコーン企業編〜"></canvas>
+    <h1 class="tlogow" aria-label="開運！だるま屋伝説 〜夢のユニコーン企業編〜"><img class="tsign" id="tSign" alt=""><span class="tkai" aria-hidden="true">開運！</span><span class="tname" aria-hidden="true">だるま屋<em>伝説</em></span><span class="trib" aria-hidden="true">〜夢のユニコーン企業編〜</span></h1>
     <p class="sub">昭和レトロな町のだるま工房。年末商戦と特需の波を読んで、3年で工房を大きくしよう。</p>
     <button class="mbtn red big" id="tNew">はじめから</button>
     <button class="mbtn big" id="tCont">つづきから</button>
