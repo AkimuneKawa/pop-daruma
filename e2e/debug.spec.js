@@ -11,7 +11,7 @@ test('デバッグパネル：クリア直前へ飛ぶと決算になり、ラ�
   await page.click('#dbgTab');
   await expect(page.locator('#dbg')).toBeVisible();
   await page.click('[data-jump="143.8"]');
-  await expect(page.locator('#dbg .msg')).toContainText('3年目 3月第4週');
+  await expect(page.locator('#dbg .msg')).toContainText('3年目 12月第4週');
   await page.click('#dClose');
   await expect(page.locator('#dlg h2')).toHaveText(/決算|閉店/, { timeout: 20000 });
   await expect(page.locator('#rName')).toHaveCount(0);
@@ -27,6 +27,7 @@ test('デバッグパネル：パラメータとテンプレ、中盤へのジ�
   await page.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
   await page.reload();
   await page.click('#tNew');
+  await page.click('#tutNo'); // チュートリアルはスキップ
   await page.click('#dbgTab');
   // パラメータ：素材の基準の値段を変えると、素材ボタンの値段が変わる
   await page.click('[data-tab="params"]');
@@ -43,7 +44,7 @@ test('デバッグパネル：パラメータとテンプレ、中盤へのジ�
   // 中盤（2年目10月）へ、低価格戦略で飛ぶ
   await page.click('[data-tab="jump"]');
   await page.selectOption('#dStrat', 'low');
-  await page.click('[data-jump="72"]');
+  await page.click('[data-jump="84"]');
   await expect(page.locator('#dbg .msg')).toContainText('2年目 10月第1週');
   expect(await page.evaluate(() => window.__daruma.S.staff.length)).toBeGreaterThan(0);
   // 状態：止めてから所持金を書き換える

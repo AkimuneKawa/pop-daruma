@@ -64,9 +64,9 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 
 function listPage() {
   const rows = branches().map(b => `<tr><td><a href="/play/${encodeURI(b.name)}/">${esc(b.name)}</a></td><td>${b.version ? `ver ${esc(b.version)}` : ''}</td><td>${esc(b.date)}</td><td><code>${esc(b.sha)}</code> ${esc(b.subject)}</td></tr>`).join('');
-  return `<!doctype html><meta charset="utf-8"><title>だるま堂 デバッグ</title>
+  return `<!doctype html><meta charset="utf-8"><title>だるま屋伝説 デバッグ</title>
 <style>body{font:14px/1.5 system-ui,sans-serif;margin:24px;background:#fbf1dc;color:#2a2320}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #cdbfa5;padding:6px;text-align:left;vertical-align:top}a{color:#d8382a;font-weight:bold}code{background:#eadcbc;padding:0 3px}</style>
-<h1>ポップだるま堂 デバッグ：ブランチを選んで遊ぶ</h1>
+<h1>だるま屋伝説 デバッグ：ブランチを選んで遊ぶ</h1>
 <p>ブランチ名を押すと、そのブランチを取り出してビルドし、遊べる状態で開きます（初回は数秒かかります）。いまの作業フォルダには影響しません。ランキングにはつながりません。<br>
 いま作業中のコードは <code>npm run dev</code>（<a href="http://localhost:5173">http://localhost:5173</a>）で遊べます。</p>
 <table><tr><th>ブランチ</th><th>版</th><th>更新日</th><th>最新のコミット</th></tr>${rows}</table>`;

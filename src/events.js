@@ -9,13 +9,13 @@ import { rint, pick } from './util.js';
 //   market: 素材の相場の目標 t と入荷上限 cap（v1 の個/日。QTY 倍して個/週）
 //   stop:   作れなくなる色
 //   mood:   町の空気の表示
-//   flags:  旗飾りの色
+//   banner: 旗飾りの絵（src/art の banners。sakura／lantern）
 //   origin: このイベントで増えた客の国籍の割合
 export const EVENT_TYPES = {
   sakura: {
     demand: { pink: 2.5, sky: 1.5, green: 1.5 }, price: { pink: 1.4, sky: 1.4, green: 1.4 },
     market: { t: 1.3, cap: 24 }, mood: '桜で大にぎわい', origin: { west: 0.6, cn: 0.4 },
-    flags: ['#f7b7cf', '#fff6e6'],
+    banner: 'sakura',
     ann: e => `${e.ann}週間後から桜が満開。観光客でピンク・あお・みどりが人気になりそう`,
     start: e => `桜が満開！観光客がカラフルなだるまを高く買っていく（${e.len}週間）`,
     end: () => '桜が散って、観光客が落ち着いた',
@@ -23,7 +23,7 @@ export const EVENT_TYPES = {
   shunsetsu: {
     demand: { red: 3, gold: 3 }, price: { red: 1.4, gold: 1.5 },
     market: { t: 1.5, cap: 16 }, mood: '春節で大にぎわい', origin: { cn: 1 },
-    flags: ['#d8382a', '#e0ad2e'],
+    banner: 'lantern',
     ann: e => `${e.ann}週間後から春節。中国からの観光客で、あか・きんが売れそう`,
     start: e => `春節の観光客が押し寄せた！あか・きんが高く売れる（${e.len}週間）`,
     end: () => '春節の観光客が帰っていった',
@@ -70,16 +70,16 @@ const BUZZ_COLORS = ['pink', 'sky', 'green', 'gold', 'pink', 'sky', 'green', 're
 // 1年分のイベント。off は年の始まりの週（2年目なら48）
 function yearEvents(rng, off) {
   const ev = [
-    { type: 'sakura', start: off + 1, len: 3, ann: 1 }, // 4月第2週〜
-    { type: 'shunsetsu', start: off + rint(40, 41, rng), len: 2, ann: 1 }, // 2月
+    { type: 'shunsetsu', start: off + rint(4, 5, rng), len: 2, ann: 1 }, // 2月
+    { type: 'sakura', start: off + 13, len: 3, ann: 1 }, // 4月第2週〜
   ];
   // バズ3回（年末商戦の時期は避ける）
-  for (const [a, b] of [[7, 12], [15, 22], [37, 39]]) {
+  for (const [a, b] of [[1, 3], [19, 24], [27, 34]]) {
     ev.push({ type: rng() < 0.5 ? 'tv' : 'sns', start: off + rint(a, b, rng), len: 2, ann: 1, color: pick(BUZZ_COLORS, rng) });
   }
   // ランダムな事件2回：3つの時期のうち2つに、違う種類を1つずつ
   const kinds = ['typhoon', 'surge', 'hormuz'].sort(() => rng() - 0.5);
-  const slots = [[4, 12], [16, 24], [38, 44]].sort(() => rng() - 0.5).slice(0, 2);
+  const slots = [[2, 8], [16, 24], [28, 36]].sort(() => rng() - 0.5).slice(0, 2);
   slots.forEach(([a, b], i) => {
     const type = kinds[i];
     ev.push({ type, start: off + rint(a, b, rng), len: type === 'typhoon' ? 1 : type === 'surge' ? 3 : 4, ann: 1 });

@@ -1,4 +1,4 @@
-import { SAVE_KEY, OLD_SAVES, WEEKIFY } from './constants.js';
+import { SAVE_KEY, V5_KEY, JAN_SHIFT, OLD_SAVES, WEEKIFY, YEAR, TOTAL } from './constants.js';
 
 // 形式は S をそのまま JSON 化したもの。構造を変えるときはキーを更新するか変換処理を追加すること
 export function save(S) { try { if (S) localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* 保存できない環境では無視 */ } }
@@ -7,9 +7,11 @@ export function load() {
   try {
     const v = localStorage.getItem(SAVE_KEY);
     if (v) return JSON.parse(v);
+    const v5 = localStorage.getItem(V5_KEY);
+    if (v5) return janify(JSON.parse(v5));
     for (const o of OLD_SAVES) {
       const old = localStorage.getItem(o.key);
-      if (old) return weekify(migrate(JSON.parse(old), o));
+      if (old) return janify(weekify(migrate(JSON.parse(old), o)));
     }
     return null;
   } catch (e) { return null; }
@@ -49,5 +51,25 @@ export function weekify(S) {
   if (typeof S.pop === 'number') S.pop *= pop;
   S.sup = 0; S.prog = 0;
   S.events = null; // 週の暦で作り直す
+  return S;
+}
+
+// v5（4月始まり）のセーブを v6（1月始まり）に直す。同じ月日になるよう時刻を JAN_SHIFT 週うしろにずらす。
+// 1〜3月だったセーブは新しい暦では年をまたぐので、その年の成績を決算済みにする（税金はなし）。
+// 3年目の1〜3月だったセーブは、最終週（3年目の12月第4週）に寄せる。イベントは作り直す（sim.normalize）
+export function janify(S) {
+  if (!S || typeof S !== 'object' || typeof S.t !== 'number') return S;
+  const y0 = Math.floor(S.day / YEAR);
+  let dt = JAN_SHIFT;
+  if (S.t + dt >= TOTAL) dt = TOTAL - 1 - S.day; // 最終週へ
+  S.t += dt; S.day += dt;
+  for (const r of S.rack ?? []) r.ready += dt;
+  for (const r of S.recv ?? []) r.due += dt;
+  for (const a of S.ads ?? []) a.until += dt;
+  if (Math.floor(S.day / YEAR) > y0 && S.year) {
+    S.history = [...(S.history ?? []), { year: y0 + 1, ...S.year, pop: S.popStars ?? 1, tax: 0 }];
+    S.year = { sold: 0, missed: 0, rev: 0, cost: 0, refused: 0 };
+  }
+  S.events = null;
   return S;
 }

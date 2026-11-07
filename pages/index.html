@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>引っ越しました｜開運！だるま屋伝説</title>
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://darumaya-densetsu.vercel.app/">
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#1f52c4;color:#1d2147;font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;font-weight:700}
+  main{background:#fff8e8;border:3px solid #17204d;box-shadow:6px 6px 0 #17204d;padding:20px 22px;margin:16px;max-width:360px;text-align:center;line-height:1.6}
+  a{display:inline-block;margin-top:10px;background:#d8382a;color:#fff6e6;border:3px solid #2a2320;padding:8px 16px;text-decoration:none}
+</style>
+</head>
+<body>
+<main>
+  <p>「開運！だるま屋伝説」は新しい場所に引っ越しました。<br>セーブデータも引き継いで移動します…</p>
+  <a id="go" href="https://darumaya-densetsu.vercel.app/">新しいページへ</a>
+</main>
+<script>
+// 古いアドレス（GitHub Pages）の localStorage にあるセーブや設定を、URL の #import= に入れて新しいアドレスへ渡す。
+// 受け取る側は src/transfer.js（決まったキーだけを、まだ何もないときだけ取り込む）
+(function () {
+  var KEYS = ['popdaruma_rt_v6', 'popdaruma_rt_v5', 'popdaruma_rt_v4', 'popdaruma_rt_v3', 'popdaruma_rt_v2', 'popdaruma_rt_v1',
+    'popdaruma_sound', 'popdaruma_seen_version', 'popdaruma_name', 'popdaruma_tutorial_done'];
+  var url = 'https://darumaya-densetsu.vercel.app/';
+  try {
+    var data = {}, n = 0;
+    KEYS.forEach(function (k) { var v = localStorage.getItem(k); if (v != null) { data[k] = v; n++; } });
+    if (n) {
+      var b64 = btoa(String.fromCharCode.apply(null, new TextEncoder().encode(JSON.stringify(data))));
+      url += '#import=' + b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+  } catch (e) { /* 読めなければ引き継がずに移動 */ }
+  document.getElementById('go').href = url;
+  location.replace(url);
+})();
+</script>
+</body>
+</html>

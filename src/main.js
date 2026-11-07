@@ -1,5 +1,6 @@
 // 起動・ゲームループ・プレイヤー操作の配線
 import './style.css';
+import './transfer.js'; // 古いアドレスからの引っ越し（ほかの読み込みより先に）
 import { BALANCE, REVENUE_GOAL, POP, CRAFT, ADS, PRICING, LOTS } from './constants.js';
 import { yen, cnt, esc, monthOf } from './util.js';
 import * as sim from './sim.js';
@@ -9,6 +10,8 @@ import { initScene, drawScene, moveVisitors, addVisitor, clearVisitors } from '.
 import * as sound from './audio.js';
 import * as ranking from './ranking.js';
 import { CHANGELOG, VERSION } from './changelog.js';
+import { signUrl } from './art.js';
+import { tutorialDone, markDone, startTutorial } from './tutorial.js';
 
 let S = null;
 let speed = 0;
@@ -37,7 +40,7 @@ const hooks = {
     setSpeed(0); sound.end(false);
     const goal = y.rev >= REVENUE_GOAL;
     modal(`<h2>${y.year}年目の決算</h2><p class="sub">${y.year}年目おつかれさまでした。${y.year + 1}年目は評判が広まってお客さんが増えますが、家賃も上がります。</p>
-    <table class="res"><tr><td>年商</td><td>${yen(y.rev)}</td></tr><tr><td>販売数</td><td>${cnt(y.sold)}個</td></tr><tr><td>売り逃し</td><td>${cnt(y.missed)}個</td></tr><tr><td>「高い」と断った客</td><td>${cnt(y.refused ?? 0)}人</td></tr><tr><td>人気</td><td>Lv${y.pop} ${POP.names[y.pop - 1]}</td></tr><tr><td>所持金</td><td>${yen(S.cash)}</td></tr><tr><td>税金（来月末に納める）</td><td class="red">${yen(y.tax)}</td></tr></table>
+    <table class="res"><tr><td>年商</td><td>${yen(y.rev)}</td></tr><tr><td>販売数</td><td>${cnt(y.sold)}個</td></tr><tr><td>売り逃し</td><td>${cnt(y.missed)}個</td></tr><tr><td>「高い」と断った客</td><td>${cnt(y.refused ?? 0)}人</td></tr><tr><td>人気</td><td>Lv${y.pop} ${POP.names[y.pop - 1]}</td></tr><tr><td>所持金</td><td>${yen(S.cash)}</td></tr><tr><td>税金（3月末に納める）</td><td class="red">${yen(y.tax)}</td></tr></table>
     ${goal ? `<p class="rank red">★ 年商${yen(REVENUE_GOAL)} 達成！ ★</p>` : ''}<button class="mbtn red big" id="ok">${y.year + 1}年目へ</button>`, { noClose: true });
     $('#ok').onclick = () => { closeModal(); setSpeed(1); };
   },
@@ -181,13 +184,14 @@ function openHelp(after) {
   <li><b>経営</b>：だるまの売値と、1回に仕入れる素材の量を決めます。高く売るほど「高い」と言って帰るお客さんが増え（人気も少し下がる）、安く売るほど評判が広がってお客さんが増えます。海外のお客さんは値段をあまり気にしませんが、まとめ買いの小売店や業者は国籍に関係なく値段にとても敏感です。うまい職人がいると高くても買ってもらえます。素材はまとめ買いほど安くなります。</li>
   <li><b>素材を買う</b>：1タップで経営で決めた量を買います（倉庫に入らない・お金が足りないときは買えません）。素材の値段はだるまの売値の半分ほどで、相場は毎週上下します。「安値」の週に倉庫いっぱい買いだめし、「高騰」の週は控えるのがコツ。特需の予告や年末商戦の前は相場が上がり、入荷も絞られます。</li>
   <li><b>月末</b>に家賃と給料を払います。払えないと資金ショート、3回で閉店。</li>
-  <li><b>税金と突発の出費</b>：毎年の決算で利益の30%の税金が決まり、翌月末に払います。年に一度、機械の故障などで修理代もかかります（設備が大きいほど高い）。支払い欄が赤いときは、いつもより多く払う月です。お金は残しておきましょう。</li>
-  <li><b>季節</b>：4月は桜の観光客でピンク・あお・みどり、2月は春節の観光客であか・きんが売れます。11〜12月の年末商戦が最大の山場ですが、素材の入荷が細り職人も雇えなくなるので、10月までに在庫と素材を仕込みましょう。年が明けると客足がぱったり減るので、売れ残りに注意。毎年3月末に決算があり、3年目の終わりで最終決算です。年を追うごとにお客さんが増えますが、家賃も上がります。</li>
+  <li><b>税金と突発の出費</b>：毎年の決算で利益の30%の税金が決まり、翌年の3月末に払います。年に一度、機械の故障などで修理代もかかります（設備が大きいほど高い）。支払い欄が赤いときは、いつもより多く払う月です。お金は残しておきましょう。</li>
+  <li><b>季節</b>：1月に開店し、3年目の12月まで営業します。1月は年明けで客足が少なめ。2月は春節の観光客であか・きんが、4月は桜の観光客でピンク・あお・みどりが売れます。11〜12月の年末商戦が最大の山場ですが、素材の入荷が細り職人も雇えなくなるので、10月までに在庫と素材を仕込みましょう。毎年12月末に決算があり（税金は3月末に納めます）、3年目の12月末で最終決算です。年が明けると客足がぱったり減るので、売れ残りに注意。年を追うごとにお客さんが増えますが、家賃も上がります。</li>
   <li><b>できごと</b>：テレビ特集やSNSのバズで特定の色が売れたり、台風・原材料高騰・ホルムズ海峡封鎖（きんが作れなくなる）が起きたりします。ニュースを見逃さずに。</li>
   <li><b>きん</b>は売値が高い高級品。普段はあまり売れませんが、年末商戦と春節で人気です。</li>
   <li>腕に覚えがあれば、<b>年商${yen(REVENUE_GOAL)}</b>を目指そう。</li></ul></div>
-  <button class="mbtn big" id="ok">とじる</button>`);
+  ${after ? '' : '<button class="mbtn big" id="tutAgain">チュートリアルをもう一度</button>'}<button class="mbtn big" id="ok">とじる</button>`);
   $('#ok').onclick = () => { closeModal(); if (after) after(); };
+  if (!after) $('#tutAgain').onclick = () => { closeModal(); tutorial(); };
 }
 function openLog() {
   modal(`<h2>ニュースの履歴</h2><p class="sub">今年の年商 ${yen(S.year.rev)}（目標 ${yen(REVENUE_GOAL)}）</p><div class="log">${S.news.slice(0, 20).map(n => `<p>${esc(n.t)}</p>`).join('') || '<p>まだありません</p>'}</div>`);
@@ -201,6 +205,7 @@ function showTitle() {
   $('#tVer').textContent = `ver ${VERSION}`;
   $('#tNewMark').hidden = seenVersion() === VERSION;
   $('#title').classList.add('show');
+  if (!$('#tSign').src) $('#tSign').src = signUrl; // 看板の絵（字は HTML で重ねる）
 }
 // バージョン a が b より新しいか（「2.10」＞「2.4」になるよう、区切りごとに数で比べる）
 function newerThan(a, b) {
@@ -257,7 +262,15 @@ soundBtn.onclick = () => {
   const m = sound.MODES[(sound.MODES.indexOf(sound.getMode()) + 1) % sound.MODES.length];
   sound.setMode(m); soundBtn.textContent = sound.MODE_LABEL[m]; syncBgm(); sound.click();
 };
-$('#tNew').onclick = () => { startNew(); $('#title').classList.remove('show'); renderUI(); setSpeed(1); };
+// はじめから：初めてのときは、チュートリアルをやるかスキップするかを選んでもらう
+function tutorial() { setSpeed(0); renderUI(); startTutorial(() => setSpeed(1)); }
+$('#tNew').onclick = () => {
+  startNew(); $('#title').classList.remove('show'); renderUI();
+  if (tutorialDone()) { setSpeed(1); return; }
+  modal(`<h2>チュートリアル</h2><p>だるま工房のやり方を、実際に操作しながら1分で覚えられます。</p><p class="sub">途中でもスキップできます。あとから「あそびかた」でもう一度見られます。</p><button class="mbtn red big" id="tutGo">やってみる</button><button class="mbtn big" id="tutNo">スキップしてはじめる</button>`, { noClose: true });
+  $('#tutGo').onclick = () => { closeModal(); tutorial(); };
+  $('#tutNo').onclick = () => { markDone(); closeModal(); setSpeed(1); };
+};
 $('#tCont').onclick = () => {
   const sv = load();
   if (sv) S = sim.isValidSave(sv) ? sim.normalize(sv) : sim.newGame();

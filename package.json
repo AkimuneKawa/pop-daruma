@@ -10,7 +10,8 @@
     "test": "vitest run",
     "autoplay": "node scripts/autoplay.js",
     "e2e": "playwright test",
-    "debug": "node scripts/debug-server.js"
+    "debug": "node scripts/debug-server.js",
+    "preview": "sh scripts/deploy-vercel-preview.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

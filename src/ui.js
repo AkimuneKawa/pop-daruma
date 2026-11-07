@@ -3,20 +3,30 @@ import { CK, TOTAL, YEAR, WEEKS, COLORS, POP, SELF_RATE, CRAFT, MARKET_LEVELS } 
 
 // 生産スピードのピップ1個あたりの生産量（素早さ★5を最大人数雇ったときにちょうど6個）
 const PIP = (SELF_RATE + CRAFT.max * 5 * CRAFT.ratePerSpeed) / 6;
-import { MINI, spr, darPal, paintStatic } from './sprites.js';
+import { ICONS, IPAL, spr } from './sprites.js';
+import { RECTS, paintPart } from './art.js';
 import { yen, cnt, dateStr, yearOf } from './util.js';
 import * as sim from './sim.js';
 
 export const $ = s => document.querySelector(s);
 
+// data-spr（だるま）・data-ico（アイコン）の canvas に絵を描く。素材のないアイコン（up・sad）はドット絵
+export function paintStatic(root) {
+  root.querySelectorAll('canvas[data-spr]').forEach(c => { c.width = c.height = 96; paintPart(c, 'daruma', c.dataset.spr); });
+  root.querySelectorAll('canvas[data-ico]').forEach(c => {
+    const k = c.dataset.ico;
+    if (RECTS.icons[k]) { c.width = c.height = 64; paintPart(c, 'icons', k); }
+    else { c.width = c.height = 9; c.classList.add('px'); spr(ICONS[k], IPAL, 0, 0, 1, c.getContext('2d')); }
+  });
+}
+
 // 色ボタン・在庫欄を生成してドット絵を塗る（起動時に1回）
 export function buildStatic() {
-  $('#colors').innerHTML = CK.map(k => `<button class="cbtn" data-c="${k}"><canvas class="dar" width="14" height="14" data-spr="${k}"></canvas>${COLORS[k].name}</button>`).join('') + `<button class="cbtn" data-c="stop"><span class="blank"></span>やめる</button>`;
-  $('#stock').innerHTML = CK.map(k => `<div><canvas class="dar" width="14" height="14" data-spr="${k}"></canvas><b id="st-${k}"></b></div>`).join('');
+  $('#colors').innerHTML = CK.map(k => `<button class="cbtn" data-c="${k}"><canvas class="dar" width="24" height="24" data-spr="${k}"></canvas>${COLORS[k].name}</button>`).join('') + `<button class="cbtn" data-c="stop"><span class="blank"></span>やめる</button>`;
+  $('#stock').innerHTML = CK.map(k => `<div><canvas class="dar" width="24" height="24" data-spr="${k}"></canvas><b id="st-${k}"></b></div>`).join('');
   paintStatic(document);
 }
 
-let pipCtx = null;
 let lastPop = { S: null, ratio: 0, stars: 1 };
 function flashGauge(g, mark, dir) {
   g.classList.remove('up', 'down'); void g.offsetWidth; g.classList.add(dir);
@@ -25,7 +35,6 @@ function flashGauge(g, mark, dir) {
 }
 export function renderUI(S, speed) {
   if (!S) return;
-  pipCtx ??= $('#prodPips').getContext('2d');
   const d = sim.curDay(S);
   $('#date').textContent = dateStr(d);
   $('#left').textContent = `${yearOf(d)}年目 残${YEAR - (d % YEAR)}週`; // 今年の残り
@@ -56,10 +65,15 @@ export function renderUI(S, speed) {
   $('#bAd').classList.toggle('on', S.ads.some(a => S.t < a.until));
   // 生産スピードのだるまピップ
   const reason = sim.prodReason(S), r = sim.prodRate(S), filled = reason ? 0 : Math.min(6, Math.max(1, Math.round(r / PIP)));
-  pipCtx.clearRect(0, 0, 54, 8);
-  for (let i = 0; i < 6; i++) spr(MINI, darPal(i < filled ? (S.color === 'stop' ? 'red' : S.color) : 'gray'), i * 9 + 1, 0, 1, pipCtx);
+  // 生産スピード：6目盛りのゲージと Lv（止まっているときは理由を出す）
+  const lvNow = Math.min(6, Math.max(1, Math.round(r / PIP)));
+  const pg = $('#prodGauge');
+  if (pg.childElementCount !== 6) pg.innerHTML = '<i></i>'.repeat(6);
+  [...pg.children].forEach((el, i) => el.classList.toggle('on', i < filled));
+  pg.style.display = reason ? 'none' : '';
+  $('#sProdLv').textContent = reason ? '' : `Lv.${lvNow}`;
   $('#sProdTxt').textContent = reason;
-  $('#prodPips').style.display = reason ? 'none' : '';
+  $('#sCust').textContent = `${cnt(S.today.cust ?? 0)}人`;
   $('#sSold').textContent = cnt(S.today.sold) + '個';
   $('#sMiss').textContent = cnt(S.today.missed) + '個';
   $('#sWh').textContent = `${cnt(Math.max(0, sim.whFree(S)))} / ${cnt(sim.whCap(S))}`;
